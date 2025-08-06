@@ -13,7 +13,7 @@ endif()
 if(WIN32)
 	target_sources(NetMQ PRIVATE
 		"src/sys/win32/Main.cpp"
-	)
+	 "src/sys/win32/IocpServer.h")
 elseif(LINUX OR APPLE)
 	target_sources(NetMQ PRIVATE
 		"src/sys/posix/Main.cpp"
@@ -28,8 +28,6 @@ include_directories(src)
 
 # Set up linker options
 if(WIN32)
-	target_compile_definitions(NetMQ PRIVATE UNICODE _UNICODE)				# Make sure Windows uses Unicode
-
 	target_link_libraries(NetMQ PUBLIC ws2_32)
 	target_link_libraries(NetMQ PUBLIC mswsock)
 endif()
