@@ -13,7 +13,8 @@ endif()
 if(WIN32)
 	target_sources(NetMQ PRIVATE
 		"src/sys/win32/Main.cpp"
-	 "src/sys/win32/IocpServer.h")
+		"src/sys/win32/IocpServer.h"
+	)
 elseif(LINUX OR APPLE)
 	target_sources(NetMQ PRIVATE
 		"src/sys/posix/Main.cpp"
