@@ -13,6 +13,8 @@ endif()
 if(WIN32)
 	target_sources(NetMQ PRIVATE
 		"src/sys/win32/Main.cpp"
+		"src/sys/win32/WinSockAPI.h"
+		"src/sys/win32/WinSockAPI.cpp"
 	)
 elseif(LINUX OR APPLE)
 	target_sources(NetMQ PRIVATE
@@ -20,9 +22,9 @@ elseif(LINUX OR APPLE)
 	)
 endif()
 
-# Specify the source files for the NetMQ project.
-#target_sources(NetMQ PRIVATE
-#)
+# Specify the common OS independent source files for the NetMQ project.
+target_sources(NetMQ PRIVATE
+)
 
 include_directories(src)
 
