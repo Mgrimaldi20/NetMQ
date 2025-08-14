@@ -6,7 +6,7 @@
 #include "WinSockAPI.h"
 
 #include <iostream>
-#include <memory>
+#include <system_error>
 #include <thread>
 #include <mutex>
 #include <list>
@@ -31,7 +31,8 @@ struct IOContext
 		ioop(),
 		buffer(),
 		iter()
-	{}
+	{
+	}
 
 	WSAOVERLAPPED overlapped;
 	WSABUF wsabuf;
@@ -60,7 +61,7 @@ int main(int argc, char **argv)
 	HANDLE iocp = CreateIoCompletionPort(INVALID_HANDLE_VALUE, nullptr, 0, 0);
 	if (!iocp)
 	{
-		std::cerr << "CreateIoCompletionPort() failed with error (initial): " << GetLastError() << std::endl;
+		std::cerr << "CreateIoCompletionPort() failed with error (initial): " << std::system_category().message(GetLastError()) << std::endl;
 		return 1;
 	}
 
@@ -91,11 +92,21 @@ int main(int argc, char **argv)
 	auto WorkerThread = [&iocp, &listensocket]() -> void
 	{
 		DWORD iosize = 0;
+		ULONG_PTR completionkey = 0;
 		WSAOVERLAPPED *wsaoverlapped = nullptr;
-		ULONG_PTR completionkey;
 
-		while (GetQueuedCompletionStatus(iocp, &iosize, &completionkey, &wsaoverlapped, INFINITE))
+		while (true)
 		{
+			bool status = GetQueuedCompletionStatus(iocp, &iosize, &completionkey, &wsaoverlapped, INFINITE);
+			if (!status)
+				std::cerr << "GetQueuedCompletionStatus() failed with error: " << std::system_category().message(GetLastError()) << std::endl;
+
+			if (!completionkey && !wsaoverlapped)
+				break;
+
+			if (!status && !wsaoverlapped)
+				break;
+
 			IOContext *ioctx = CONTAINING_RECORD(wsaoverlapped, IOContext, overlapped);
 			switch (ioctx->ioop)
 			{
@@ -105,14 +116,14 @@ int main(int argc, char **argv)
 					int ret = setsockopt(ioctx->acceptsocket, SOL_SOCKET, SO_UPDATE_ACCEPT_CONTEXT, (char *)&listensocket, sizeof(listensocket));
 					if (ret == SOCKET_ERROR)
 					{
-						std::cerr << "setsockopt(SO_UPDATE_ACCEPT_CONTEXT) failed to update accept socket: " << WSAGetLastError() << std::endl;
+						std::cerr << "setsockopt(SO_UPDATE_ACCEPT_CONTEXT) failed to update accept socket: " << std::system_category().message(WSAGetLastError()) << std::endl;
 						CloseClient(ioctx);
 						return;
 					}
 
 					if (!CreateIoCompletionPort((HANDLE)ioctx->acceptsocket, iocp, (ULONG_PTR)ioctx->acceptsocket, 0))
 					{
-						std::cerr << "CreateIoCompletionPort() failed to associate iocp handle to accept socket: " << GetLastError() << std::endl;
+						std::cerr << "CreateIoCompletionPort() failed to associate iocp handle to accept socket: " << std::system_category().message(GetLastError()) << std::endl;
 						CloseClient(ioctx);
 						return;
 					}
@@ -125,9 +136,8 @@ int main(int argc, char **argv)
 					ret = WSARecv(ioctx->acceptsocket, &ioctx->wsabuf, 1, nullptr, &flags, &ioctx->overlapped, nullptr);
 					if (ret == SOCKET_ERROR && (WSAGetLastError() != ERROR_IO_PENDING))
 					{
-						std::cerr << "WSARecv() failed with error: " << WSAGetLastError() << std::endl;
+						std::cerr << "WSARecv() failed with error: " << std::system_category().message(WSAGetLastError()) << std::endl;
 						CloseClient(ioctx);
-						return;
 					}
 
 					// post another accept for a new client
@@ -156,9 +166,8 @@ int main(int argc, char **argv)
 					int ret = WSASend(ioctx->acceptsocket, &ioctx->wsabuf, 1, nullptr, 0, &ioctx->overlapped, nullptr);
 					if (ret == SOCKET_ERROR && (WSAGetLastError() != ERROR_IO_PENDING))
 					{
-						std::cerr << "WSASend() failed with error: " << WSAGetLastError() << std::endl;
+						std::cerr << "WSASend() failed with error: " << std::system_category().message(WSAGetLastError()) << std::endl;
 						CloseClient(ioctx);
-						return;
 					}
 
 					break;
@@ -174,9 +183,8 @@ int main(int argc, char **argv)
 					int ret = WSARecv(ioctx->acceptsocket, &ioctx->wsabuf, 1, nullptr, &flags, &ioctx->overlapped, nullptr);
 					if (ret == SOCKET_ERROR && (WSAGetLastError() != ERROR_IO_PENDING))
 					{
-						std::cerr << "WSARecv() failed with error: " << WSAGetLastError() << std::endl;
+						std::cerr << "WSARecv() failed with error: " << std::system_category().message(WSAGetLastError()) << std::endl;
 						CloseClient(ioctx);
-						return;
 					}
 
 					break;
@@ -210,7 +218,7 @@ SOCKET CreateSocket()
 	SOCKET socket = WSASocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, nullptr, 0, WSA_FLAG_OVERLAPPED);
 	if (socket == INVALID_SOCKET)
 	{
-		std::cerr << "WSASocket() failed with error: " << WSAGetLastError() << std::endl;
+		std::cerr << "WSASocket() failed with error: " << std::system_category().message(WSAGetLastError()) << std::endl;
 		return socket;
 	}
 
@@ -218,7 +226,7 @@ SOCKET CreateSocket()
 	int ret = setsockopt(socket, SOL_SOCKET, SO_SNDBUF, (char *)&zero, sizeof(zero));
 	if (ret == SOCKET_ERROR)
 	{
-		std::cerr << "setsockopt(SO_SNDBUF) failed with error: " << WSAGetLastError() << std::endl;
+		std::cerr << "setsockopt(SO_SNDBUF) failed with error: " << std::system_category().message(WSAGetLastError()) << std::endl;
 		return socket;
 	}
 
@@ -235,14 +243,14 @@ bool CreateListenSocket(const SOCKET &listensocket)
 	int ret = bind(listensocket, (sockaddr *)&hints, sizeof(hints));
 	if (ret == SOCKET_ERROR)
 	{
-		std::cerr << "bind() failed with error: " << WSAGetLastError() << std::endl;
+		std::cerr << "bind() failed with error: " << std::system_category().message(WSAGetLastError()) << std::endl;
 		return false;
 	}
 
 	ret = listen(listensocket, SOMAXCONN);
 	if (ret == SOCKET_ERROR)
 	{
-		std::cerr << "listen() failed with error: " << WSAGetLastError() << std::endl;
+		std::cerr << "listen() failed with error: " << std::system_category().message(WSAGetLastError()) << std::endl;
 		return false;
 	}
 
@@ -257,7 +265,7 @@ bool CreateAcceptSocket(const SOCKET &listensocket, const HANDLE &iocp, const bo
 	{
 		if (!CreateIoCompletionPort((HANDLE)listensocket, iocp, 0, 0))
 		{
-			std::cerr << "CreateIoCompletionPort() failed to associate iocp handle to listen socket: " << GetLastError() << std::endl;
+			std::cerr << "CreateIoCompletionPort() failed to associate iocp handle to listen socket: " << std::system_category().message(GetLastError()) << std::endl;
 			return false;
 		}
 
@@ -278,7 +286,7 @@ bool CreateAcceptSocket(const SOCKET &listensocket, const HANDLE &iocp, const bo
 
 		if (ret == SOCKET_ERROR)
 		{
-			std::cerr << "WSAIoctl() failed to retrieve AcceptEx function address with error: " << WSAGetLastError() << std::endl;
+			std::cerr << "WSAIoctl() failed to retrieve AcceptEx function address with error: " << std::system_category().message(WSAGetLastError()) << std::endl;
 			return false;
 		}
 	}
@@ -314,7 +322,7 @@ bool CreateAcceptSocket(const SOCKET &listensocket, const HANDLE &iocp, const bo
 
 	if (ret == SOCKET_ERROR && (WSAGetLastError() != ERROR_IO_PENDING))
 	{
-		std::cerr << "AcceptEx() failed with error: " << WSAGetLastError() << std::endl;
+		std::cerr << "AcceptEx() failed with error: " << std::system_category().message(WSAGetLastError()) << std::endl;
 		closesocket(ioctx.acceptsocket);
 		ioctxlist.erase(iter);
 		return false;
