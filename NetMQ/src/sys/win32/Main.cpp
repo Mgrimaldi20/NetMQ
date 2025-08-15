@@ -9,6 +9,7 @@
 #include <system_error>
 #include <thread>
 #include <mutex>
+#include <vector>
 #include <list>
 
 static constexpr unsigned short NET_DEFAULT_PORT = 5001;
@@ -89,7 +90,9 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	auto WorkerThread = [&iocp, &listensocket]() -> void
+	bool stopthreads = false;
+
+	auto WorkerThread = [&iocp, &listensocket, &stopthreads]() -> void
 	{
 		DWORD iosize = 0;
 		ULONG_PTR completionkey = 0;
@@ -107,7 +110,7 @@ int main(int argc, char **argv)
 			if (!status && !wsaoverlapped)
 				break;
 
-			IOContext *ioctx = CONTAINING_RECORD(wsaoverlapped, IOContext, overlapped);
+			IOContext *ioctx = CONTAINING_RECORD(wsaoverlapped, IOContext, overlapped);	// determine the clients socket context, and what action they want to take
 			switch (ioctx->ioop)
 			{
 				case IOOperation::IOOP_ACCEPT:
@@ -140,12 +143,15 @@ int main(int argc, char **argv)
 						CloseClient(ioctx);
 					}
 
-					// post another accept for a new client
-					if (!CreateAcceptSocket(listensocket, iocp, false))
+					// post another accept for a new client if the server isnt stopping
+					if (!stopthreads)
 					{
-						std::cerr << "CreateAcceptSocket() failed" << std::endl;
-						CloseClient(ioctx);
-						return;
+						if (!CreateAcceptSocket(listensocket, iocp, false))
+						{
+							std::cerr << "CreateAcceptSocket() failed" << std::endl;
+							CloseClient(ioctx);
+							return;
+						}
 					}
 
 					break;
@@ -199,15 +205,54 @@ int main(int argc, char **argv)
 	unsigned int numthreads = std::thread::hardware_concurrency() * 2;
 	numthreads = (numthreads == 0) ? NET_DEFAULT_THREADS : numthreads;
 
+	if (numthreads == NET_DEFAULT_THREADS)
+	{
+		std::cout << "The number of threads avaliable is equal to the default number ["
+			<< NET_DEFAULT_THREADS
+			<< "]: If this is not correct, you may wish to restart NetMQ as the correct number of system threads have not been detected"
+			<< std::endl;
+	}
+
+	std::vector<std::thread> threads;
 	for (unsigned int i=0; i<numthreads; i++)
-		std::thread(WorkerThread).detach();
+		threads.emplace_back(WorkerThread);
 
 	std::cout << "Number of threads available: " << numthreads << std::endl;
 	std::cout << "Echo server running on port " << NET_DEFAULT_PORT << std::endl;
 	std::cout << "Press ENTER to exit..." << std::endl;
 	std::cin.get();
 
-	closesocket(listensocket);
+	stopthreads = true;
+
+	closesocket(listensocket);		// stop accepting new connections and cause any accepts to fail
+
+	{
+		std::scoped_lock<std::mutex> lock(ioctxlistmtx);
+		for (IOContext &ioctx : ioctxlist)
+		{
+			if (ioctx.acceptsocket != INVALID_SOCKET)
+			{
+				shutdown(ioctx.acceptsocket, SD_BOTH);
+				CancelIoEx((HANDLE)ioctx.acceptsocket, &ioctx.overlapped);
+			}
+		}
+
+		if (!ioctxlist.empty())
+		{
+			for (IOContext &ioctx : ioctxlist)
+				CloseClient(&ioctx);
+		}
+	}
+
+	for (unsigned int i=0; i<numthreads; i++)
+		PostQueuedCompletionStatus(iocp, 0, 0, nullptr);
+
+	for (std::thread &thread : threads)
+	{
+		if (thread.joinable())
+			thread.join();
+	}
+
 	CloseHandle(iocp);
 
 	return 0;
@@ -259,7 +304,7 @@ bool CreateListenSocket(const SOCKET &listensocket)
 
 bool CreateAcceptSocket(const SOCKET &listensocket, const HANDLE &iocp, const bool updateiocp)
 {
-	std::lock_guard<std::mutex> lock(ioctxlistmtx);
+	std::scoped_lock<std::mutex> lock(ioctxlistmtx);
 
 	if (updateiocp)
 	{
@@ -333,7 +378,7 @@ bool CreateAcceptSocket(const SOCKET &listensocket, const HANDLE &iocp, const bo
 
 void CloseClient(IOContext *context)
 {
-	std::lock_guard<std::mutex> lock(ioctxlistmtx);
+	std::scoped_lock<std::mutex> lock(ioctxlistmtx);
 
 	if (!context)
 		return;
