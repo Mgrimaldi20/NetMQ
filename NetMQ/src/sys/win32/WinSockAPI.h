@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _NETMQ_WINSOCKAPI_H_
+#define _NETMQ_WINSOCKAPI_H_
 
 #include <WinSock2.h>
 #include <MSWSock.h>
@@ -12,3 +13,5 @@ public:
 private:
 	WSAData wsadata;
 };
+
+#endif

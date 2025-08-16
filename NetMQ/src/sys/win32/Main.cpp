@@ -12,6 +12,8 @@
 #include <vector>
 #include <list>
 
+#include "framework/Cmd.h"
+
 static constexpr unsigned short NET_DEFAULT_PORT = 5001;
 static constexpr unsigned int NET_DEFAULT_THREADS = 2;
 static constexpr size_t NET_MAX_BUFFER_SIZE = 8192;
@@ -48,6 +50,21 @@ bool CreateListenSocket(const SOCKET &listensocket);
 bool CreateAcceptSocket(const SOCKET &listensocket, const HANDLE &iocp, const bool updateiocp);
 void CloseClient(IOContext *context);
 
+void Publish_Cmd(const CmdArgs &args)
+{
+	const size_t argc = args.GetCount();
+	if ((argc < 3) || (argc > 3))
+	{
+		std::cout << "Usage: " << args[0] << " [topic] [value]" << std::endl;
+		return;
+	}
+
+	std::cout << "Test function PUB: "
+		<< args[0] << " "
+		<< args[1] << " "
+		<< args[2] << std::endl;
+}
+
 LPFN_ACCEPTEX AcceptExFn;
 std::list<IOContext> ioctxlist;
 std::mutex ioctxlistmtx;
@@ -56,6 +73,11 @@ int main(int argc, char **argv)
 {
 	(int)argc;
 	(char **)argv;
+
+	Cmd::maptype_t cmdmap;
+	Cmd cmd(cmdmap);
+
+	cmd.RegisterCommand("pub", Publish_Cmd);
 
 	WinSockAPI wsa(2, 2);
 
@@ -92,7 +114,7 @@ int main(int argc, char **argv)
 
 	bool stopthreads = false;
 
-	auto WorkerThread = [&iocp, &listensocket, &stopthreads]() -> void
+	auto WorkerThread = [&iocp, &listensocket, &stopthreads, &cmd]() -> void
 	{
 		DWORD iosize = 0;
 		ULONG_PTR completionkey = 0;
@@ -193,6 +215,11 @@ int main(int argc, char **argv)
 						CloseClient(ioctx);
 					}
 
+					{
+						std::scoped_lock<std::mutex> lock(ioctxlistmtx);
+						cmd.BufferCommand(ioctx->wsabuf.buf);
+					}
+
 					break;
 				}
 
@@ -219,8 +246,13 @@ int main(int argc, char **argv)
 
 	std::cout << "Number of threads available: " << numthreads << std::endl;
 	std::cout << "Echo server running on port " << NET_DEFAULT_PORT << std::endl;
-	std::cout << "Press ENTER to exit..." << std::endl;
-	std::cin.get();
+	/*std::cout << "Press ENTER to exit..." << std::endl;
+	std::cin.get();*/
+
+	while (true)
+	{
+		cmd.ExecuteCommandBuffer();
+	}
 
 	stopthreads = true;
 

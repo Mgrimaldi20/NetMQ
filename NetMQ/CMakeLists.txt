@@ -24,6 +24,10 @@ endif()
 
 # Specify the common OS independent source files for the NetMQ project.
 target_sources(NetMQ PRIVATE
+	"src/framework/Cmd.h"
+	"src/framework/Cmd.cpp"
+	"src/framework/CmdArgs.h"
+	"src/framework/CmdArgs.cpp"
 )
 
 include_directories(src)
