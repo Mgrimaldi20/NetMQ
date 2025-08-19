@@ -9,7 +9,7 @@
 #include <system_error>
 #include <thread>
 #include <mutex>
-#include <vector>
+#include <unordered_set>
 #include <list>
 
 #include "framework/Cmd.h"
@@ -43,6 +43,7 @@ struct IOContext
 	IOOperation ioop;
 	char buffer[NET_MAX_BUFFER_SIZE];
 	std::list<IOContext>::iterator iter;
+	std::unordered_set<std::string> subscriptions;
 };
 
 SOCKET CreateSocket();
@@ -50,7 +51,7 @@ bool CreateListenSocket(const SOCKET &listensocket);
 bool CreateAcceptSocket(const SOCKET &listensocket, const HANDLE &iocp, const bool updateiocp);
 void CloseClient(IOContext *context);
 
-void Publish_Cmd(const CmdArgs &args)
+void Publish_Cmd(const std::any userdata, const CmdArgs &args)
 {
 	const size_t argc = args.GetCount();
 	if ((argc < 3) || (argc > 3))
@@ -60,14 +61,53 @@ void Publish_Cmd(const CmdArgs &args)
 	}
 
 	std::cout << "Test function PUB: "
+		<< std::any_cast<IOContext *>(userdata)->acceptsocket << " "
 		<< args[0] << " "
 		<< args[1] << " "
 		<< args[2] << std::endl;
 }
 
+void Subscribe_Cmd(const std::any userdata, const CmdArgs &args)
+{
+	const size_t argc = args.GetCount();
+	if ((argc < 2) || (argc > 2))
+	{
+		std::cout << "Usage: " << args[0] << " [topic]" << std::endl;
+		return;
+	}
+
+	IOContext *ioctx = std::any_cast<IOContext *>(userdata);
+
+	std::cout << "Test function SUB: "
+		<< ioctx->acceptsocket << " "
+		<< args[0] << " "
+		<< args[1] << std::endl;
+
+	ioctx->subscriptions.insert(args[1]);
+}
+
+void Unsubscribe_Cmd(const std::any userdata, const CmdArgs &args)
+{
+	const size_t argc = args.GetCount();
+	if ((argc < 2) || (argc > 2))
+	{
+		std::cout << "Usage: " << args[0] << " [topic]" << std::endl;
+		return;
+	}
+
+	IOContext *ioctx = std::any_cast<IOContext *>(userdata);
+
+	std::cout << "Test function UNSUB: "
+		<< ioctx->acceptsocket << " "
+		<< args[0] << " "
+		<< args[1] << std::endl;
+
+	ioctx->subscriptions.erase(args[1]);
+}
+
 LPFN_ACCEPTEX AcceptExFn;
 std::list<IOContext> ioctxlist;
-std::mutex ioctxlistmtx;
+std::recursive_mutex ioctxlistmtx;
 
 int main(int argc, char **argv)
 {
@@ -78,6 +118,8 @@ int main(int argc, char **argv)
 	Cmd cmd(cmdmap);
 
 	cmd.RegisterCommand("pub", Publish_Cmd);
+	cmd.RegisterCommand("sub", Subscribe_Cmd);
+	cmd.RegisterCommand("unsub", Unsubscribe_Cmd);
 
 	WinSockAPI wsa(2, 2);
 
@@ -215,10 +257,8 @@ int main(int argc, char **argv)
 						CloseClient(ioctx);
 					}
 
-					{
-						std::scoped_lock<std::mutex> lock(ioctxlistmtx);
-						cmd.BufferCommand(ioctx->wsabuf.buf);
-					}
+					cmd.ExecuteCommand(ioctx, ioctx->wsabuf.buf);
+					memset(ioctx->buffer, '\0', NET_MAX_BUFFER_SIZE);	// clear the buffer of garbage data
 
 					break;
 				}
@@ -246,20 +286,15 @@ int main(int argc, char **argv)
 
 	std::cout << "Number of threads available: " << numthreads << std::endl;
 	std::cout << "Echo server running on port " << NET_DEFAULT_PORT << std::endl;
-	/*std::cout << "Press ENTER to exit..." << std::endl;
-	std::cin.get();*/
-
-	while (true)
-	{
-		cmd.ExecuteCommandBuffer();
-	}
+	std::cout << "Press ENTER to exit..." << std::endl;
+	std::cin.get();
 
 	stopthreads = true;
 
 	closesocket(listensocket);		// stop accepting new connections and cause any accepts to fail
 
 	{
-		std::scoped_lock<std::mutex> lock(ioctxlistmtx);
+		std::scoped_lock<std::recursive_mutex> lock(ioctxlistmtx);
 		for (IOContext &ioctx : ioctxlist)
 		{
 			if (ioctx.acceptsocket != INVALID_SOCKET)
@@ -272,7 +307,17 @@ int main(int argc, char **argv)
 		if (!ioctxlist.empty())
 		{
 			for (IOContext &ioctx : ioctxlist)
-				CloseClient(&ioctx);
+			{
+				std::cout << "Closing client: " << ioctx.acceptsocket << std::endl;
+
+				if (ioctx.acceptsocket == INVALID_SOCKET)
+				{
+					std::cerr << "Socket context is alread INVALID" << std::endl;
+					continue;
+				}
+
+				closesocket(ioctx.acceptsocket);
+			}
 		}
 	}
 
@@ -336,7 +381,7 @@ bool CreateListenSocket(const SOCKET &listensocket)
 
 bool CreateAcceptSocket(const SOCKET &listensocket, const HANDLE &iocp, const bool updateiocp)
 {
-	std::scoped_lock<std::mutex> lock(ioctxlistmtx);
+	std::scoped_lock<std::recursive_mutex> lock(ioctxlistmtx);
 
 	if (updateiocp)
 	{
@@ -410,7 +455,7 @@ bool CreateAcceptSocket(const SOCKET &listensocket, const HANDLE &iocp, const bo
 
 void CloseClient(IOContext *context)
 {
-	std::scoped_lock<std::mutex> lock(ioctxlistmtx);
+	std::scoped_lock<std::recursive_mutex> lock(ioctxlistmtx);
 
 	if (!context)
 		return;

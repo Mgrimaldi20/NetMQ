@@ -17,22 +17,10 @@ void Cmd::RegisterCommand(const std::string &name, const Cmd::CmdFunction_t &fun
 	cmdmap.insert_or_assign(name, func);
 }
 
-void Cmd::BufferCommand(const std::string &cmd)
+void Cmd::ExecuteCommand(const std::any userdata, const std::string &cmd)
 {
-	cmdqueue.push(cmd);
-}
+	CmdArgs args(cmd);		// tokenizes the whole cmd string (args[0] is the cmd name)
 
-void Cmd::ExecuteCommandBuffer()
-{
-	while (!cmdqueue.empty())
-	{
-		const std::string &cmd = cmdqueue.front();
-
-		CmdArgs args(cmd);
-
-		if (cmdmap.contains(args[0]))
-			cmdmap.at(args[0])(args);	// tokenizes the whole cmd string, then calls the function with the args (args[0] is the cmd name)
-
-		cmdqueue.pop();
-	}
+	if (cmdmap.contains(args[0]))
+		cmdmap.at(args[0])(userdata, args);
 }
