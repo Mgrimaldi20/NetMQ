@@ -35,6 +35,7 @@ struct IOContext
 		acceptsocket(INVALID_SOCKET),
 		ioop(),
 		buffer(),
+		subscriptions(),
 		iter()
 	{
 	}
@@ -44,8 +45,8 @@ struct IOContext
 	SOCKET acceptsocket;
 	IOOperation ioop;
 	char buffer[NET_MAX_BUFFER_SIZE];
-	std::list<IOContext>::iterator iter;
 	std::unordered_set<std::string> subscriptions;
+	std::list<IOContext>::iterator iter;
 };
 
 SOCKET CreateSocket();
@@ -53,7 +54,11 @@ bool CreateListenSocket(const SOCKET &listensocket);
 bool CreateAcceptSocket(const SOCKET &listensocket, const HANDLE &iocp, const bool updateiocp);
 void CloseClient(IOContext *context);
 
-void Publish_Cmd(const std::any userdata, const CmdArgs &args)
+LPFN_ACCEPTEX AcceptExFn;
+std::list<IOContext> ioctxlist;
+std::recursive_mutex ioctxlistmtx;
+
+void Publish_Cmd(const std::any &userdata, const CmdArgs &args)
 {
 	const size_t argc = args.GetCount();
 	if ((argc < 3) || (argc > 3))
@@ -62,14 +67,25 @@ void Publish_Cmd(const std::any userdata, const CmdArgs &args)
 		return;
 	}
 
-	std::cout << "Test function PUB: "
-		<< std::any_cast<IOContext *>(userdata)->acceptsocket << " "
-		<< args[0] << " "
-		<< args[1] << " "
-		<< args[2] << std::endl;
+	(const std::any &)userdata;
+
+	std::scoped_lock<std::recursive_mutex> lock(ioctxlistmtx);
+
+	for (IOContext &ctx : ioctxlist)
+	{
+		if (ctx.acceptsocket != INVALID_SOCKET && ctx.subscriptions.contains(args[1]))
+		{
+			std::string msg = std::format("Topic: {}, Data: {}", args[1], args[2]);	// memory leak here :||
+			WSABUF sendbuf((ULONG)msg.size(), msg.data());
+
+			int ret = WSASend(ctx.acceptsocket, &sendbuf, 1, nullptr, 0, &ctx.overlapped, nullptr);
+			if (ret == SOCKET_ERROR && (WSAGetLastError() != ERROR_IO_PENDING))
+				std::cerr << "WSASend() failed with error: " << std::system_category().message(WSAGetLastError()) << std::endl;
+		}
+	}
 }
 
-void Subscribe_Cmd(const std::any userdata, const CmdArgs &args)
+void Subscribe_Cmd(const std::any &userdata, const CmdArgs &args)
 {
 	const size_t argc = args.GetCount();
 	if ((argc < 2) || (argc > 2))
@@ -79,16 +95,11 @@ void Subscribe_Cmd(const std::any userdata, const CmdArgs &args)
 	}
 
 	IOContext *ioctx = std::any_cast<IOContext *>(userdata);
-
-	std::cout << "Test function SUB: "
-		<< ioctx->acceptsocket << " "
-		<< args[0] << " "
-		<< args[1] << std::endl;
 
 	ioctx->subscriptions.insert(args[1]);
 }
 
-void Unsubscribe_Cmd(const std::any userdata, const CmdArgs &args)
+void Unsubscribe_Cmd(const std::any &userdata, const CmdArgs &args)
 {
 	const size_t argc = args.GetCount();
 	if ((argc < 2) || (argc > 2))
@@ -99,17 +110,8 @@ void Unsubscribe_Cmd(const std::any userdata, const CmdArgs &args)
 
 	IOContext *ioctx = std::any_cast<IOContext *>(userdata);
 
-	std::cout << "Test function UNSUB: "
-		<< ioctx->acceptsocket << " "
-		<< args[0] << " "
-		<< args[1] << std::endl;
-
 	ioctx->subscriptions.erase(args[1]);
 }
-
-LPFN_ACCEPTEX AcceptExFn;
-std::list<IOContext> ioctxlist;
-std::recursive_mutex ioctxlistmtx;
 
 int main(int argc, char **argv)
 {
@@ -223,7 +225,7 @@ int main(int argc, char **argv)
 					break;
 				}
 
-				case IOOperation::Read:
+				case IOOperation::Read:		// a read operation is complete, so post a write back to the client now
 				{
 					if (iosize == 0)	// client closed
 					{
@@ -245,7 +247,7 @@ int main(int argc, char **argv)
 					break;
 				}
 
-				case IOOperation::Write:
+				case IOOperation::Write:	// a write operation is complete, so post a read to get more data from the client
 				{
 					// post another read after sending
 					ioctx->ioop = IOOperation::Read;
@@ -260,7 +262,6 @@ int main(int argc, char **argv)
 					}
 
 					cmd.ExecuteCommand(ioctx, ioctx->wsabuf.buf);
-					memset(ioctx->buffer, '\0', NET_MAX_BUFFER_SIZE);	// clear the buffer of garbage data
 
 					break;
 				}

@@ -17,7 +17,7 @@ void Cmd::RegisterCommand(const std::string &name, const Cmd::CmdFunction &func)
 	cmdmap.insert_or_assign(name, func);
 }
 
-void Cmd::ExecuteCommand(const std::any userdata, const std::string &cmd)
+void Cmd::ExecuteCommand(const std::any &userdata, const std::string &cmd)
 {
 	CmdArgs args(cmd);		// tokenizes the whole cmd string (args[0] is the cmd name)
 

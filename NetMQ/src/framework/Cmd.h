@@ -10,9 +10,7 @@
 /*
 * Class: Cmd
 * The command system, responsible for registering any commands that the clients may call.
-* For now, the commands are queued from the worker threads and continuously executed.
-* The commands are stored in a queue, but may change this to store them in a string buffer.
-* May evntually do away with buffering and instead execute commands as they come for performance
+* Commands are mapped by their name after tokenization, and the server will immediately execute.
 * 
 *	RegisterCommand: Registers a new command with the system, or modifies an existing one
 *	ExecuteCommand: Tokenizes and executes the command string supplied, IOContext as userdata
@@ -20,13 +18,13 @@
 class Cmd
 {
 public:
-	using CmdFunction = void (*)(const std::any, const CmdArgs &);
+	using CmdFunction = void (*)(const std::any &, const CmdArgs &);
 
 	Cmd();
 	~Cmd();
 
 	void RegisterCommand(const std::string &name, const Cmd::CmdFunction &func);
-	void ExecuteCommand(const std::any userdata, const std::string &cmd);
+	void ExecuteCommand(const std::any &userdata, const std::string &cmd);
 
 private:
 	std::unordered_map<std::string, Cmd::CmdFunction> cmdmap;

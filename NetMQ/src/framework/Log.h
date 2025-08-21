@@ -6,6 +6,16 @@
 #include <filesystem>
 #include <format>
 
+/*
+* Class: Log
+* The logging system, controlls wiritng to a log file or to std::cout streams.
+* Different logging levels are provided to represent the class of information to log.
+* The logger will print the current time, level, and message.
+* 
+*	Info: log a formatted information message, designed for general program information and state
+*	Warn: log a formatted warning message, designed for recoverable issues or abnormal state
+*	Error: log a formatted error message, designed for unrecoverable code errors, program should quit
+*/
 class Log
 {
 public:

@@ -1,5 +1,6 @@
 #include <iostream>
 #include <chrono>
+#include <stdexcept>
 
 #include "Log.h"
 
@@ -12,16 +13,21 @@ Log::Log(const std::filesystem::path &fullpath)
 	: outstream(logfile)
 {
 	if (fullpath.empty())
-		return;
+	{
+		const std::string err = "The full path provided to the Logger is empty\n";
+		std::cerr << err;
+		throw std::runtime_error(err);
+	}
 
 	if (!fullpath.has_filename())
-		return;
+	{
+		const std::string err = "The full path provided to the Logger has no file name\n";
+		std::cerr << err;
+		throw std::runtime_error(err);
+	}
 
 	if (fullpath.has_parent_path())
-	{
-		if (!std::filesystem::create_directories(fullpath.parent_path()))	// create if the dirs dont exist
-			return;
-	}
+		std::filesystem::create_directories(fullpath.parent_path());
 
 	logfile.open(fullpath.string());
 }
