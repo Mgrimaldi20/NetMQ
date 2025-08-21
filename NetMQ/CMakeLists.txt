@@ -28,6 +28,8 @@ target_sources(NetMQ PRIVATE
 	"src/framework/Cmd.cpp"
 	"src/framework/CmdArgs.h"
 	"src/framework/CmdArgs.cpp"
+	"src/framework/Log.h"
+	"src/framework/Log.cpp"
 )
 
 include_directories(src)

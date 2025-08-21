@@ -17,10 +17,6 @@ CmdArgs::CmdArgs(const std::string &cmdstr)
 		args.push_back(token);
 }
 
-CmdArgs::~CmdArgs()
-{
-}
-
 const size_t CmdArgs::GetCount() const
 {
 	return args.size();

@@ -18,7 +18,7 @@ public:
 	const std::string &operator[](size_t index) const;
 
 	CmdArgs(const std::string &cmdstr);
-	~CmdArgs();
+	~CmdArgs() {}
 
 	const size_t GetCount() const;
 

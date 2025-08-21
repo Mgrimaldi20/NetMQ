@@ -9,9 +9,11 @@
 #include <system_error>
 #include <thread>
 #include <mutex>
+#include <string>
 #include <unordered_set>
 #include <list>
 
+#include "framework/Log.h"
 #include "framework/Cmd.h"
 
 static constexpr unsigned short NET_DEFAULT_PORT = 5001;
@@ -20,9 +22,9 @@ static constexpr size_t NET_MAX_BUFFER_SIZE = 8192;
 
 enum class IOOperation
 {
-	IOOP_ACCEPT,
-	IOOP_READ,
-	IOOP_WRITE
+	Accept,
+	Read,
+	Write,
 };
 
 struct IOContext
@@ -114,8 +116,8 @@ int main(int argc, char **argv)
 	(int)argc;
 	(char **)argv;
 
-	Cmd::maptype_t cmdmap;
-	Cmd cmd(cmdmap);
+	Log log;
+	Cmd cmd;
 
 	cmd.RegisterCommand("pub", Publish_Cmd);
 	cmd.RegisterCommand("sub", Subscribe_Cmd);
@@ -177,7 +179,7 @@ int main(int argc, char **argv)
 			IOContext *ioctx = CONTAINING_RECORD(wsaoverlapped, IOContext, overlapped);	// determine the clients socket context, and what action they want to take
 			switch (ioctx->ioop)
 			{
-				case IOOperation::IOOP_ACCEPT:
+				case IOOperation::Accept:
 				{
 					// after AcceptEx completed
 					int ret = setsockopt(ioctx->acceptsocket, SOL_SOCKET, SO_UPDATE_ACCEPT_CONTEXT, (char *)&listensocket, sizeof(listensocket));
@@ -196,7 +198,7 @@ int main(int argc, char **argv)
 					}
 
 					// start a read from a new client
-					ioctx->ioop = IOOperation::IOOP_READ;
+					ioctx->ioop = IOOperation::Read;
 					ioctx->wsabuf.len = NET_MAX_BUFFER_SIZE;
 
 					DWORD flags = 0;
@@ -221,7 +223,7 @@ int main(int argc, char **argv)
 					break;
 				}
 
-				case IOOperation::IOOP_READ:
+				case IOOperation::Read:
 				{
 					if (iosize == 0)	// client closed
 					{
@@ -230,7 +232,7 @@ int main(int argc, char **argv)
 					}
 
 					// echo back to the client
-					ioctx->ioop = IOOperation::IOOP_WRITE;
+					ioctx->ioop = IOOperation::Write;
 					ioctx->wsabuf.len = iosize;
 
 					int ret = WSASend(ioctx->acceptsocket, &ioctx->wsabuf, 1, nullptr, 0, &ioctx->overlapped, nullptr);
@@ -243,10 +245,10 @@ int main(int argc, char **argv)
 					break;
 				}
 
-				case IOOperation::IOOP_WRITE:
+				case IOOperation::Write:
 				{
 					// post another read after sending
-					ioctx->ioop = IOOperation::IOOP_READ;
+					ioctx->ioop = IOOperation::Read;
 					ioctx->wsabuf.len = NET_MAX_BUFFER_SIZE;
 
 					DWORD flags = 0;
@@ -419,7 +421,7 @@ bool CreateAcceptSocket(const SOCKET &listensocket, const HANDLE &iocp, const bo
 	ioctx.iter = iter;
 
 	ZeroMemory(&ioctx.overlapped, sizeof(ioctx.overlapped));
-	ioctx.ioop = IOOperation::IOOP_ACCEPT;
+	ioctx.ioop = IOOperation::Accept;
 	ioctx.wsabuf.buf = ioctx.buffer;
 	ioctx.wsabuf.len = NET_MAX_BUFFER_SIZE;
 

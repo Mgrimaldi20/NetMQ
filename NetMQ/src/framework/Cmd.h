@@ -20,17 +20,16 @@
 class Cmd
 {
 public:
-	typedef void (*CmdFunction_t)(const std::any, const CmdArgs &);
-	typedef std::unordered_map<std::string, Cmd::CmdFunction_t> maptype_t;
+	using CmdFunction = void (*)(const std::any, const CmdArgs &);
 
-	Cmd(Cmd::maptype_t &cmdmap);
+	Cmd();
 	~Cmd();
 
-	void RegisterCommand(const std::string &name, const Cmd::CmdFunction_t &func);
+	void RegisterCommand(const std::string &name, const Cmd::CmdFunction &func);
 	void ExecuteCommand(const std::any userdata, const std::string &cmd);
 
 private:
-	Cmd::maptype_t &cmdmap;
+	std::unordered_map<std::string, Cmd::CmdFunction> cmdmap;
 };
 
 #endif

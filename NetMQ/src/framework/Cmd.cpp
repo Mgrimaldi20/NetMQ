@@ -2,8 +2,8 @@
 
 #include "Cmd.h"
 
-Cmd::Cmd(Cmd::maptype_t &cmdmap)
-	: cmdmap(cmdmap)
+Cmd::Cmd()
+	: cmdmap()
 {
 }
 
@@ -12,7 +12,7 @@ Cmd::~Cmd()
 	std::cout << "Shutting down command system" << std::endl;
 }
 
-void Cmd::RegisterCommand(const std::string &name, const Cmd::CmdFunction_t &func)
+void Cmd::RegisterCommand(const std::string &name, const Cmd::CmdFunction &func)
 {
 	cmdmap.insert_or_assign(name, func);
 }
