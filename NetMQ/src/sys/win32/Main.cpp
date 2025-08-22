@@ -36,6 +36,7 @@ struct IOContext
 		ioop(),
 		buffer(),
 		subscriptions(),
+		outgoing(),
 		iter()
 	{
 	}
@@ -46,6 +47,7 @@ struct IOContext
 	IOOperation ioop;
 	char buffer[NET_MAX_BUFFER_SIZE];
 	std::unordered_set<std::string> subscriptions;
+	std::string outgoing;
 	std::list<IOContext>::iterator iter;
 };
 
@@ -75,10 +77,12 @@ void Publish_Cmd(const std::any &userdata, const CmdArgs &args)
 	{
 		if (ctx.acceptsocket != INVALID_SOCKET && ctx.subscriptions.contains(args[1]))
 		{
-			std::string msg = std::format("Topic: {}, Data: {}", args[1], args[2]);	// memory leak here :||
-			WSABUF sendbuf((ULONG)msg.size(), msg.data());
+			ctx.outgoing = std::format("Topic: {}, Data: {}", args[1], args[2]);
 
-			int ret = WSASend(ctx.acceptsocket, &sendbuf, 1, nullptr, 0, &ctx.overlapped, nullptr);
+			ctx.wsabuf.len = (ULONG)ctx.outgoing.size();
+			ctx.wsabuf.buf = ctx.outgoing.data();
+
+			int ret = WSASend(ctx.acceptsocket, &ctx.wsabuf, 1, nullptr, 0, &ctx.overlapped, nullptr);
 			if (ret == SOCKET_ERROR && (WSAGetLastError() != ERROR_IO_PENDING))
 				std::cerr << "WSASend() failed with error: " << std::system_category().message(WSAGetLastError()) << std::endl;
 		}
@@ -472,6 +476,7 @@ void CloseClient(IOContext *context)
 	}
 
 	closesocket(context->acceptsocket);
+	context->acceptsocket = INVALID_SOCKET;
 
 	std::list<IOContext>::iterator iter = context->iter;
 	ioctxlist.erase(iter);

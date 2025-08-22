@@ -5,7 +5,8 @@
 #include "Log.h"
 
 Log::Log()
-	: outstream(std::cout)
+	: outstream(std::cout),
+	logname("COUT")
 {
 }
 
@@ -30,11 +31,15 @@ Log::Log(const std::filesystem::path &fullpath)
 		std::filesystem::create_directories(fullpath.parent_path());
 
 	logfile.open(fullpath.string());
+
+	logname = fullpath.filename().string();
 }
 
 Log::~Log()
 {
-	std::cout << "Closing log file" << std::endl;
+	std::cout << "Closing log: " << logname << std::endl;
+
+	outstream.flush();
 }
 
 void Log::Write(Log::Type type, const std::string &msg)

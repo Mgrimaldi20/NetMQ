@@ -4,6 +4,7 @@
 #include <ostream>
 #include <fstream>
 #include <filesystem>
+#include <string>
 #include <format>
 
 /*
@@ -53,6 +54,7 @@ private:
 
 	std::ofstream logfile;
 	std::ostream &outstream;
+	std::string logname;
 };
 
 #endif
