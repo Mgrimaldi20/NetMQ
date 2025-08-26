@@ -12,6 +12,7 @@
 #include <thread>
 #include <mutex>
 #include <atomic>
+#include <condition_variable>
 #include <functional>
 #include <unordered_set>
 #include <list>
@@ -74,7 +75,9 @@ LPFN_ACCEPTEX AcceptExFn;
 std::list<IOContext> ioctxlist;
 std::recursive_mutex ioctxlistmtx;
 
-std::atomic<bool> stopthreads;
+std::atomic<bool> endserver;
+std::atomic<bool> restartserver;
+std::condition_variable cleanupcv;
 
 void Publish_Cmd(const std::any &userdata, const CmdArgs &args)
 {
@@ -163,103 +166,131 @@ int main(int argc, char **argv)
 
 	WinSockAPI wsa(2, 2);
 
-	HANDLE iocp = CreateIoCompletionPort(INVALID_HANDLE_VALUE, nullptr, 0, 0);
-	if (!iocp)
+	restartserver = true;
+
+	while (restartserver.load())
 	{
-		log.Error("CreateIoCompletionPort() failed with error (initial): {}", GetErrorMessage(GetLastError()));
-		return 1;
-	}
+		endserver = false;
+		restartserver = false;
 
-	SOCKET listensocket = CreateSocket();
-	if (listensocket == INVALID_SOCKET)
-	{
-		log.Error("CreateSocket() failed");
-		CloseHandle(iocp);
-		SetConsoleCtrlHandler(CtrlHandler, FALSE);
-		return 1;
-	}
-
-	if (!CreateListenSocket(listensocket))
-	{
-		log.Error("CreateListenSocket() failed");
-		closesocket(listensocket);
-		CloseHandle(iocp);
-		SetConsoleCtrlHandler(CtrlHandler, FALSE);
-		return 1;
-	}
-
-	if (!CreateAcceptSocket(listensocket, iocp, true))
-	{
-		log.Error("CreateListenSocket() failed");
-		closesocket(listensocket);
-		CloseHandle(iocp);
-		SetConsoleCtrlHandler(CtrlHandler, FALSE);
-		return 1;
-	}
-
-	unsigned int numthreads = std::thread::hardware_concurrency() * 2;
-	numthreads = (numthreads == 0) ? NET_DEFAULT_THREADS : numthreads;
-
-	if (numthreads == NET_DEFAULT_THREADS)
-	{
-		log.Info("The number of threads avaliable is equal to the default number [{}]", NET_DEFAULT_THREADS);
-		log.Info("If this is not correct, you may wish to restart NetMQ as the correct number of system threads have not been detected");
-	}
-
-	std::vector<std::thread> threads;
-	for (unsigned int i=0; i<numthreads; i++)
-		threads.emplace_back(WorkerThread, std::ref(iocp), std::ref(listensocket), std::ref(cmd), std::ref(log));
-
-	log.Info("Number of threads available: {}", numthreads);
-	log.Info("Echo server running on port: {}", NET_DEFAULT_PORT);
-	log.Info("Press ENTER to exit...");
-	std::cin.get();
-
-	stopthreads = true;
-
-	closesocket(listensocket);		// stop accepting new connections and cause any accepts to fail
-
-	{
-		std::scoped_lock lock(ioctxlistmtx);
-
-		for (IOContext &ioctx : ioctxlist)
+		HANDLE iocp = CreateIoCompletionPort(INVALID_HANDLE_VALUE, nullptr, 0, 0);
+		if (!iocp)
 		{
-			if (ioctx.acceptsocket != INVALID_SOCKET)
-			{
-				shutdown(ioctx.acceptsocket, SD_BOTH);
-				CancelIoEx((HANDLE)ioctx.acceptsocket, &ioctx.acceptov);
-				CancelIoEx((HANDLE)ioctx.acceptsocket, &ioctx.sendov);
-				CancelIoEx((HANDLE)ioctx.acceptsocket, &ioctx.recvov);
-			}
+			log.Error("CreateIoCompletionPort() failed with error (initial): {}", GetErrorMessage(GetLastError()));
+			return 1;
 		}
 
-		if (!ioctxlist.empty())
+		SOCKET listensocket = CreateSocket();
+		if (listensocket == INVALID_SOCKET)
 		{
+			log.Error("CreateSocket() failed");
+			CloseHandle(iocp);
+			SetConsoleCtrlHandler(CtrlHandler, FALSE);
+			return 1;
+		}
+
+		if (!CreateListenSocket(listensocket))
+		{
+			log.Error("CreateListenSocket() failed");
+			closesocket(listensocket);
+			CloseHandle(iocp);
+			SetConsoleCtrlHandler(CtrlHandler, FALSE);
+			return 1;
+		}
+
+		if (!CreateAcceptSocket(listensocket, iocp, true))
+		{
+			log.Error("CreateListenSocket() failed");
+			closesocket(listensocket);
+			CloseHandle(iocp);
+			SetConsoleCtrlHandler(CtrlHandler, FALSE);
+			return 1;
+		}
+
+		unsigned int numthreads = std::thread::hardware_concurrency() * 2;
+		numthreads = (numthreads == 0) ? NET_DEFAULT_THREADS : numthreads;
+
+		if (numthreads == NET_DEFAULT_THREADS)
+		{
+			log.Info("The number of threads avaliable is equal to the default number [{}]", NET_DEFAULT_THREADS);
+			log.Info("If this is not correct, you may wish to restart NetMQ as the correct number of system threads have not been detected");
+		}
+
+		std::vector<std::thread> threads;
+		for (unsigned int i=0; i<numthreads; i++)
+			threads.emplace_back(WorkerThread, std::ref(iocp), std::ref(listensocket), std::ref(cmd), std::ref(log));
+
+		log.Info("Number of threads available: {}", numthreads);
+		log.Info("Echo server running on port: {}", NET_DEFAULT_PORT);
+		log.Info("Press Ctrl-C to exit, or Ctrl-Break to restart...");
+
+		{
+			std::mutex cvmtx;
+			std::unique_lock lock(cvmtx);
+			cleanupcv.wait(lock);
+		}
+
+		if (listensocket != INVALID_SOCKET)
+		{
+			closesocket(listensocket);		// stop accepting new connections and cause any accepts to fail
+			listensocket = INVALID_SOCKET;
+		}
+
+		{
+			std::scoped_lock lock(ioctxlistmtx);
+
 			for (IOContext &ioctx : ioctxlist)
 			{
-				log.Info("Closing client: {}", ioctx.acceptsocket);
-
-				if (ioctx.acceptsocket == INVALID_SOCKET)
+				if (ioctx.acceptsocket != INVALID_SOCKET)
 				{
-					log.Error("Socket context is alread INVALID");
-					continue;
+					shutdown(ioctx.acceptsocket, SD_BOTH);
+					CancelIoEx((HANDLE)ioctx.acceptsocket, &ioctx.acceptov);
+					CancelIoEx((HANDLE)ioctx.acceptsocket, &ioctx.sendov);
+					CancelIoEx((HANDLE)ioctx.acceptsocket, &ioctx.recvov);
 				}
+			}
 
-				closesocket(ioctx.acceptsocket);
+			if (!ioctxlist.empty())
+			{
+				for (IOContext &ioctx : ioctxlist)
+				{
+					log.Info("Closing client: {}", ioctx.acceptsocket);
+
+					if (ioctx.acceptsocket == INVALID_SOCKET)
+					{
+						log.Error("Socket context is alread INVALID");
+						continue;
+					}
+
+					closesocket(ioctx.acceptsocket);
+				}
 			}
 		}
+
+		if (iocp)
+		{
+			for (unsigned int i=0; i<numthreads; i++)
+				PostQueuedCompletionStatus(iocp, 0, 0, nullptr);
+		}
+
+		for (std::thread &thread : threads)
+		{
+			if (thread.joinable())
+				thread.join();
+		}
+
+		if (iocp)
+		{
+			CloseHandle(iocp);
+			iocp = nullptr;
+		}
+
+		if (restartserver.load())
+			log.Info("NetMQ is restarting...");
+
+		else
+			log.Info("NetMQ is exiting...");
 	}
-
-	for (unsigned int i=0; i<numthreads; i++)
-		PostQueuedCompletionStatus(iocp, 0, 0, nullptr);
-
-	for (std::thread &thread : threads)
-	{
-		if (thread.joinable())
-			thread.join();
-	}
-
-	CloseHandle(iocp);
 
 	SetConsoleCtrlHandler(CtrlHandler, FALSE);
 
@@ -283,20 +314,22 @@ BOOL WINAPI CtrlHandler(DWORD event)
 	switch (event)
 	{
 		case CTRL_BREAK_EVENT:
+			restartserver = true;
 			[[fallthrough]];
 
 		case CTRL_C_EVENT:
 		case CTRL_LOGOFF_EVENT:
 		case CTRL_SHUTDOWN_EVENT:
 		case CTRL_CLOSE_EVENT:
-			stopthreads = true;
+			endserver = true;
+			cleanupcv.notify_all();
 			break;
 
 		default:
-			return TRUE;	// pass onto the next or default ctrl handler
+			return FALSE;	// pass onto the next or default ctrl handler
 	}
 
-	return FALSE;
+	return TRUE;
 }
 
 void WorkerThread(HANDLE &iocp, SOCKET &listensocket, Cmd &cmd, Log &log)
@@ -357,7 +390,7 @@ void WorkerThread(HANDLE &iocp, SOCKET &listensocket, Cmd &cmd, Log &log)
 			PostRecv(*ioctx);
 
 			// post another accept for a new client if the server isnt stopping
-			if (!stopthreads.load())
+			if (!endserver.load())
 			{
 				if (!CreateAcceptSocket(listensocket, iocp, false))
 				{
@@ -381,8 +414,7 @@ void WorkerThread(HANDLE &iocp, SOCKET &listensocket, Cmd &cmd, Log &log)
 			cmd.ExecuteCommand(ioctx, ioctx->buffer);
 
 			// post another read after sending
-			if (ioctx)
-				PostRecv(*ioctx);
+			PostRecv(*ioctx);
 		}
 
 		else if (wsaoverlapped == &ioctx->sendov)	// a read operation is complete, so post a write back to the client now
