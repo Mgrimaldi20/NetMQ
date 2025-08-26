@@ -44,18 +44,22 @@ Log::~Log()
 
 void Log::Write(Log::Type type, const std::string &msg)
 {
-	std::format_to(std::ostream_iterator<char>(outstream), "{} [{}] {}\n",
-		std::chrono::floor<std::chrono::seconds>(std::chrono::current_zone()->to_local(std::chrono::system_clock::now())),
-		[](Log::Type type)
+	auto GetTypeStr = [](Log::Type type)
+	{
+		switch (type)
 		{
-			switch (type)
-			{
-				case Log::Type::Info: return "INFO";
-				case Log::Type::Warn: return "WARN";
-				case Log::Type::Error: return "ERROR";
-				default: return "UNKNOWN";
-			}
-		} (type),
+			case Log::Type::Info: return "INFO";
+			case Log::Type::Warn: return "WARN";
+			case Log::Type::Error: return "ERROR";
+			default: return "UNKNOWN";
+		}
+	};
+
+	std::format_to(
+		std::ostream_iterator<char>(outstream),
+		"{} [{}] {}\n",
+		std::chrono::floor<std::chrono::seconds>(std::chrono::current_zone()->to_local(std::chrono::system_clock::now())),
+		GetTypeStr(type),
 		msg
 	);
 }

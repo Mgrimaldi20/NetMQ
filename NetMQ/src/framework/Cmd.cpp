@@ -21,6 +21,8 @@ void Cmd::ExecuteCommand(const std::any &userdata, const std::string &cmd)
 {
 	CmdArgs args(cmd);		// tokenizes the whole cmd string (args[0] is the cmd name)
 
-	if (cmdmap.contains(args[0]))
-		cmdmap.at(args[0])(userdata, args);
+	const std::string &func = args[0];
+
+	if (cmdmap.contains(func))
+		cmdmap.at(func)(userdata, args);
 }
