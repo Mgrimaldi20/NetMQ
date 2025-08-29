@@ -73,7 +73,7 @@ void CloseClient(IOContext *context);
 
 LPFN_ACCEPTEX AcceptExFn;
 std::list<IOContext> ioctxlist;
-std::recursive_mutex ioctxlistmtx;
+std::mutex ioctxlistmtx;
 
 std::atomic<bool> endserver;
 std::atomic<bool> restartserver;
@@ -227,7 +227,21 @@ int main(int argc, char **argv)
 		{
 			std::mutex cvmtx;
 			std::unique_lock lock(cvmtx);
-			cleanupcv.wait(lock);
+			cleanupcv.wait(lock, [] { return endserver.load(); });
+		}
+
+		endserver = true;
+
+		if (iocp)
+		{
+			for (unsigned int i=0; i<numthreads; i++)
+				PostQueuedCompletionStatus(iocp, 0, 0, nullptr);
+		}
+
+		for (std::thread &thread : threads)
+		{
+			if (thread.joinable())
+				thread.join();
 		}
 
 		if (listensocket != INVALID_SOCKET)
@@ -265,18 +279,6 @@ int main(int argc, char **argv)
 					closesocket(ioctx.acceptsocket);
 				}
 			}
-		}
-
-		if (iocp)
-		{
-			for (unsigned int i=0; i<numthreads; i++)
-				PostQueuedCompletionStatus(iocp, 0, 0, nullptr);
-		}
-
-		for (std::thread &thread : threads)
-		{
-			if (thread.joinable())
-				thread.join();
 		}
 
 		if (iocp)
@@ -364,7 +366,7 @@ void WorkerThread(HANDLE &iocp, SOCKET &listensocket, Cmd &cmd, Log &log)
 
 		if (!ioctx)
 		{
-			log.Warn("Unknown IO Context");
+			log.Warn("Unknown IO Context, it may have been closed...");
 			continue;
 		}
 
@@ -385,6 +387,8 @@ void WorkerThread(HANDLE &iocp, SOCKET &listensocket, Cmd &cmd, Log &log)
 				CloseClient(ioctx);
 				return;
 			}
+
+			memset(ioctx->buffer, '\0', NET_MAX_BUFFER_SIZE);
 
 			// start a read from a new client
 			PostRecv(*ioctx);
@@ -411,10 +415,10 @@ void WorkerThread(HANDLE &iocp, SOCKET &listensocket, Cmd &cmd, Log &log)
 				continue;
 			}
 
-			cmd.ExecuteCommand(ioctx, ioctx->buffer);
-
 			// post another read after sending
 			PostRecv(*ioctx);
+
+			cmd.ExecuteCommand(ioctx, ioctx->buffer);
 		}
 
 		else if (wsaoverlapped == &ioctx->sendov)	// a read operation is complete, so post a write back to the client now
