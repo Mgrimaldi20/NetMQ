@@ -262,27 +262,19 @@ int main(int argc, char **argv)
 			{
 				if (ioctx.acceptsocket != INVALID_SOCKET)
 				{
+					log.Info("Closing client: {}", ioctx.acceptsocket);
+
 					shutdown(ioctx.acceptsocket, SD_BOTH);
 					CancelIoEx((HANDLE)ioctx.acceptsocket, &ioctx.acceptov);
 					CancelIoEx((HANDLE)ioctx.acceptsocket, &ioctx.sendov);
 					CancelIoEx((HANDLE)ioctx.acceptsocket, &ioctx.recvov);
-				}
-			}
-
-			if (!ioctxlist.empty())
-			{
-				for (IOContext &ioctx : ioctxlist)
-				{
-					log.Info("Closing client: {}", ioctx.acceptsocket);
-
-					if (ioctx.acceptsocket == INVALID_SOCKET)
-					{
-						log.Error("Socket context is alread INVALID");
-						continue;
-					}
 
 					closesocket(ioctx.acceptsocket);
+					ioctx.acceptsocket = INVALID_SOCKET;
 				}
+
+				log.Warn("Socket context is alread INVALID");
+				continue;
 			}
 		}
 
@@ -356,13 +348,13 @@ void WorkerThread(HANDLE &iocp, SOCKET &listensocket, Cmd &cmd, Log &log)
 
 		IOContext *ioctx = nullptr;
 
-        {
-            std::scoped_lock lock(ioctxmapmtx);
+		{
+			std::scoped_lock lock(ioctxmapmtx);
 
-            auto it = ioctxmap.find(wsaoverlapped);
-            if (it != ioctxmap.end())
-                ioctx = it->second;
-        }
+			auto it = ioctxmap.find(wsaoverlapped);
+			if (it != ioctxmap.end())
+				ioctx = it->second;
+		}
 
 		if (!ioctx)
 		{
@@ -387,8 +379,6 @@ void WorkerThread(HANDLE &iocp, SOCKET &listensocket, Cmd &cmd, Log &log)
 				CloseClient(ioctx);
 				return;
 			}
-
-			memset(ioctx->buffer, '\0', NET_MAX_BUFFER_SIZE);
 
 			// start a read from a new client
 			PostRecv(*ioctx);
@@ -415,18 +405,19 @@ void WorkerThread(HANDLE &iocp, SOCKET &listensocket, Cmd &cmd, Log &log)
 				continue;
 			}
 
-			// post another read after sending
-			PostRecv(*ioctx);
+			size_t recvsize = (iosize < NET_MAX_BUFFER_SIZE) ? iosize : (NET_MAX_BUFFER_SIZE - 1);
+			ioctx->buffer[recvsize] = '\0';
 
 			cmd.ExecuteCommand(ioctx, ioctx->buffer);
+
+			// post another read after sending
+			PostRecv(*ioctx);
 		}
 
 		else if (wsaoverlapped == &ioctx->sendov)	// a read operation is complete, so post a write back to the client now
 		{
 			ioctx->sending = false;
-
 			ioctx->outgoing.clear();
-			memset(ioctx->buffer, '\0', ioctx->recvwsabuf.len);
 		}
 	}
 };
