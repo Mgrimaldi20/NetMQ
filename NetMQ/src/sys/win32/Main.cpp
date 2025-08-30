@@ -15,6 +15,7 @@
 #include <condition_variable>
 #include <functional>
 #include <unordered_set>
+#include <unordered_map>
 #include <list>
 
 #include "framework/Log.h"
@@ -51,8 +52,8 @@ struct IOContext
 	WSAOVERLAPPED sendov;
 	WSABUF recvwsabuf;
 	WSABUF sendwsabuf;
-	bool recving;
-	bool sending;
+	std::atomic<bool> recving;
+	std::atomic<bool> sending;
 	char buffer[NET_MAX_BUFFER_SIZE];
 	std::unordered_set<std::string> subscriptions;
 	std::string outgoing;
@@ -72,8 +73,12 @@ void PostSend(IOContext &ioctx);
 void CloseClient(IOContext *context);
 
 LPFN_ACCEPTEX AcceptExFn;
+
 std::list<IOContext> ioctxlist;
 std::mutex ioctxlistmtx;
+
+std::unordered_map<WSAOVERLAPPED *, IOContext *> ioctxmap;
+std::mutex ioctxmapmtx;
 
 std::atomic<bool> endserver;
 std::atomic<bool> restartserver;
@@ -351,18 +356,13 @@ void WorkerThread(HANDLE &iocp, SOCKET &listensocket, Cmd &cmd, Log &log)
 
 		IOContext *ioctx = nullptr;
 
-		{
-			std::scoped_lock lock(ioctxlistmtx);
+        {
+            std::scoped_lock lock(ioctxmapmtx);
 
-			for (IOContext &ctx : ioctxlist)
-			{
-				if (&ctx.acceptov == wsaoverlapped || &ctx.recvov == wsaoverlapped || &ctx.sendov == wsaoverlapped)
-				{
-					ioctx = &ctx;
-					break;
-				}
-			}
-		}
+            auto it = ioctxmap.find(wsaoverlapped);
+            if (it != ioctxmap.end())
+                ioctx = it->second;
+        }
 
 		if (!ioctx)
 		{
@@ -514,6 +514,11 @@ bool CreateAcceptSocket(const SOCKET &listensocket, const HANDLE &iocp, const bo
 	IOContext &ioctx = *iter;
 	ioctx.iter = iter;
 
+	{
+		std::scoped_lock maplock(ioctxmapmtx);
+		ioctxmap.insert(std::make_pair(&ioctx.acceptov, &ioctx));
+	}
+
 	ioctx.acceptsocket = CreateSocket();
 	if (ioctx.acceptsocket == INVALID_SOCKET)
 	{
@@ -555,6 +560,11 @@ void PostRecv(IOContext &ioctx)
 	ioctx.recvwsabuf.buf = ioctx.buffer;
 	ioctx.recvwsabuf.len = NET_MAX_BUFFER_SIZE;
 
+	{
+		std::scoped_lock maplock(ioctxmapmtx);
+		ioctxmap.insert(std::make_pair(&ioctx.recvov, &ioctx));
+	}
+
 	DWORD flags = 0;
 	int ret = WSARecv(ioctx.acceptsocket, &ioctx.recvwsabuf, 1, nullptr, &flags, &ioctx.recvov, nullptr);
 	if (ret == SOCKET_ERROR && (WSAGetLastError() != ERROR_IO_PENDING))
@@ -576,6 +586,11 @@ void PostSend(IOContext &ioctx)
 
 	ioctx.sendwsabuf.buf = ioctx.outgoing.data();
 	ioctx.sendwsabuf.len = static_cast<ULONG>(ioctx.outgoing.size());
+
+	{
+		std::scoped_lock maplock(ioctxmapmtx);
+		ioctxmap.insert(std::make_pair(&ioctx.sendov, &ioctx));
+	}
 
 	int ret = WSASend(ioctx.acceptsocket, &ioctx.sendwsabuf, 1, nullptr, 0, &ioctx.sendov, nullptr);
 	if (ret == SOCKET_ERROR && (WSAGetLastError() != ERROR_IO_PENDING))
