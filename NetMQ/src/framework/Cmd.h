@@ -30,4 +30,14 @@ private:
 	std::unordered_map<std::string, Cmd::CmdFunction> cmdmap;
 };
 
+/*class CmdSystem
+{
+public:
+	CmdSystem();
+	~CmdSystem();
+
+private:
+	std::unordered_map<std::string, Cmd> cmdmap;
+};*/
+
 #endif
