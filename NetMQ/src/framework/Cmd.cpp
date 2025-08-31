@@ -2,22 +2,61 @@
 
 #include "Cmd.h"
 
-Cmd::Cmd()
-	: cmdmap()
+/*
+* Cmd
+*/
+void Cmd::operator()(const std::any &userdata, const CmdArgs &args) const
+{
+	func(userdata, args);
+}
+
+Cmd::Cmd(const std::string &name, const CmdFunction &cmdfunc, const std::string &description)
+	: name(name),
+	func(cmdfunc),
+	description(description)
 {
 }
 
-Cmd::~Cmd()
+const std::string &Cmd::GetName()
 {
-	std::cout << "Shutting down command system" << std::endl;
+	return name;
 }
 
-void Cmd::RegisterCommand(const std::string &name, const Cmd::CmdFunction &func)
+const std::string &Cmd::GetDescription()
 {
-	cmdmap.insert_or_assign(name, func);
+	return description;
 }
 
-void Cmd::ExecuteCommand(const std::any &userdata, const std::string &cmd)
+/*
+* CmdSystem
+*/
+CmdSystem::CmdSystem(Log &log)
+	: log(log),
+	cmdmap()
+{
+}
+
+CmdSystem::~CmdSystem()
+{
+	log.Info("Shutting down command system");
+}
+
+const Cmd &CmdSystem::RegisterCommand(Cmd &cmd)
+{
+	return cmdmap.insert_or_assign(cmd.GetName(), cmd).first->second;
+}
+
+const Cmd &CmdSystem::RegisterCommand(const std::string &name, const Cmd::CmdFunction &cmdfunc, const std::string &description)
+{
+	return cmdmap.insert_or_assign(name, Cmd(name, cmdfunc, description)).first->second;
+}
+
+const Cmd &CmdSystem::FindCommand(const std::string &name)
+{
+	return cmdmap.at(name);
+}
+
+void CmdSystem::ExecuteCommand(const std::any &userdata, const std::string &cmd)
 {
 	CmdArgs args(cmd);		// tokenizes the whole cmd string (args[0] is the cmd name)
 

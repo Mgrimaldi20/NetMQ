@@ -82,7 +82,7 @@ struct IOContext
 const std::string GetErrorMessage(const DWORD errcode);
 BOOL WINAPI CtrlHandler(DWORD event);
 
-void WorkerThread(HANDLE &iocp, SOCKET &listensocket, Cmd &cmd, Log &log);
+void WorkerThread(HANDLE &iocp, SOCKET &listensocket, CmdSystem &cmd, Log &log);
 
 SOCKET CreateSocket();
 bool CreateListenSocket(const SOCKET &listensocket);
@@ -172,12 +172,12 @@ int main(int argc, char **argv)
 	(char **)argv;
 
 	Log log;
-	Cmd cmd;
+	CmdSystem cmd(log);
 
-	cmd.RegisterCommand("pub", Publish_Cmd);
-	cmd.RegisterCommand("sub", Subscribe_Cmd);
-	cmd.RegisterCommand("unsub", Unsubscribe_Cmd);
-	cmd.RegisterCommand("exit", Exit_Cmd);
+	cmd.RegisterCommand("pub", Publish_Cmd, "Publishes data to a specified topic, best effort");
+	cmd.RegisterCommand("sub", Subscribe_Cmd, "Subscribes to a topic to get incoming data from publisher");
+	cmd.RegisterCommand("unsub", Unsubscribe_Cmd, "Unsubscribe from a topic to stop receiving its data");
+	cmd.RegisterCommand("exit", Exit_Cmd, "Disconnect the client from the server entirely");
 
 	if (!SetConsoleCtrlHandler(CtrlHandler, TRUE))
 	{
@@ -276,22 +276,24 @@ int main(int argc, char **argv)
 
 			for (IOContext &ioctx : ioctxlist)
 			{
-				if (ioctx.acceptsocket != INVALID_SOCKET)
+				if (ioctx.acceptsocket == INVALID_SOCKET)
 				{
-					log.Info("Closing client: {}", ioctx.acceptsocket);
-
-					shutdown(ioctx.acceptsocket, SD_BOTH);
-					CancelIoEx((HANDLE)ioctx.acceptsocket, &ioctx.acceptov.overlapped);
-					CancelIoEx((HANDLE)ioctx.acceptsocket, &ioctx.sendov.overlapped);
-					CancelIoEx((HANDLE)ioctx.acceptsocket, &ioctx.recvov.overlapped);
-
-					closesocket(ioctx.acceptsocket);
-					ioctx.acceptsocket = INVALID_SOCKET;
+					log.Warn("Socket context is alread INVALID");
+					continue;
 				}
 
-				log.Warn("Socket context is alread INVALID");
-				continue;
+				log.Info("Closing client: {}", ioctx.acceptsocket);
+
+				shutdown(ioctx.acceptsocket, SD_BOTH);
+				CancelIoEx((HANDLE)ioctx.acceptsocket, &ioctx.acceptov.overlapped);
+				CancelIoEx((HANDLE)ioctx.acceptsocket, &ioctx.sendov.overlapped);
+				CancelIoEx((HANDLE)ioctx.acceptsocket, &ioctx.recvov.overlapped);
+
+				closesocket(ioctx.acceptsocket);
+				ioctx.acceptsocket = INVALID_SOCKET;
 			}
+
+			ioctxlist.clear();
 		}
 
 		if (iocp)
@@ -301,7 +303,7 @@ int main(int argc, char **argv)
 		}
 
 		if (restartserver.load())
-			log.Info("NetMQ is restarting...");
+			log.Info("NetMQ is restarting...\n");
 
 		else
 			log.Info("NetMQ is exiting...");
@@ -347,7 +349,7 @@ BOOL WINAPI CtrlHandler(DWORD event)
 	return TRUE;
 }
 
-void WorkerThread(HANDLE &iocp, SOCKET &listensocket, Cmd &cmd, Log &log)
+void WorkerThread(HANDLE &iocp, SOCKET &listensocket, CmdSystem &cmd, Log &log)
 {
 	DWORD iosize = 0;
 	ULONG_PTR completionkey = 0;

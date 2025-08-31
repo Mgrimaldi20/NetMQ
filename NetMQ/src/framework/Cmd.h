@@ -3,41 +3,61 @@
 
 #include <string>
 #include <any>
+#include <functional>
 #include <unordered_map>
 
+#include "Log.h"
 #include "CmdArgs.h"
 
 /*
 * Class: Cmd
-* The command system, responsible for registering any commands that the clients may call.
-* Commands are mapped by their name after tokenization, and the server will immediately execute.
+* This class is the representation of a command used by the system.
+* These commands will be stored by a command system, or can be created free standing.
 * 
-*	RegisterCommand: Registers a new command with the system, or modifies an existing one
-*	ExecuteCommand: Tokenizes and executes the command string supplied, IOContext as userdata
+*	operator(): Calls the command function with the supplied args
 */
 class Cmd
 {
 public:
-	using CmdFunction = void (*)(const std::any &, const CmdArgs &);
+	using CmdFunction = std::function<void(const std::any &, const CmdArgs &)>;
 
-	Cmd();
-	~Cmd();
+	void operator()(const std::any &userdata, const CmdArgs &args) const;
 
-	void RegisterCommand(const std::string &name, const Cmd::CmdFunction &func);
+	Cmd(const std::string &name, const CmdFunction &cmdfunc, const std::string &description);
+	~Cmd() {};
+
+	const std::string &GetName();
+	const std::string &GetDescription();
+
+private:
+	std::string name;
+	std::string description;
+	CmdFunction func;
+};
+
+/*
+* Class: CmdSystem
+* The command system, responsible for registering any commands that the clients may call.
+*
+*	RegisterCommand: Registers a new command with the system, or modifies an existing one, push or emplace
+*	FindCommand: Returns the command found from the specified name if it exists
+*	ExecuteCommand: Tokenizes and executes the command string supplied, IOContext as userdata
+*/
+class CmdSystem
+{
+public:
+	CmdSystem(Log &log);
+	~CmdSystem();
+
+	const Cmd &RegisterCommand(Cmd &cmd);
+	const Cmd &RegisterCommand(const std::string &name, const Cmd::CmdFunction &cmdfunc, const std::string &description);
+	const Cmd &FindCommand(const std::string &name);
+
 	void ExecuteCommand(const std::any &userdata, const std::string &cmd);
 
 private:
-	std::unordered_map<std::string, Cmd::CmdFunction> cmdmap;
-};
-
-/*class CmdSystem
-{
-public:
-	CmdSystem();
-	~CmdSystem();
-
-private:
+	Log &log;
 	std::unordered_map<std::string, Cmd> cmdmap;
-};*/
+};
 
 #endif
