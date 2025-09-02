@@ -14,18 +14,10 @@ Log::Log(const std::filesystem::path &fullpath)
 	: outstream(logfile)
 {
 	if (fullpath.empty())
-	{
-		const std::string err = "The full path provided to the Logger is empty\n";
-		std::cerr << err;
-		throw std::runtime_error(err);
-	}
+		throw std::runtime_error("The full path provided to the Logger is empty");
 
 	if (!fullpath.has_filename())
-	{
-		const std::string err = "The full path provided to the Logger has no file name\n";
-		std::cerr << err;
-		throw std::runtime_error(err);
-	}
+		throw std::runtime_error("The full path provided to the Logger has no file name");
 
 	if (fullpath.has_parent_path())
 		std::filesystem::create_directories(fullpath.parent_path());

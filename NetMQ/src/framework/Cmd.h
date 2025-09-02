@@ -26,8 +26,8 @@ public:
 	Cmd(const std::string &name, const CmdFunction &cmdfunc, const std::string &description);
 	~Cmd() {};
 
-	const std::string &GetName();
-	const std::string &GetDescription();
+	const std::string &GetName() const;
+	const std::string &GetDescription() const;
 
 private:
 	std::string name;
@@ -49,7 +49,7 @@ public:
 	CmdSystem(Log &log);
 	~CmdSystem();
 
-	const Cmd &RegisterCommand(Cmd &cmd);
+	const Cmd &RegisterCommand(const Cmd &cmd);
 	const Cmd &RegisterCommand(const std::string &name, const Cmd::CmdFunction &cmdfunc, const std::string &description);
 	const Cmd &FindCommand(const std::string &name);
 

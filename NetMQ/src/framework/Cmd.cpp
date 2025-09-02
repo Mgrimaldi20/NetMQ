@@ -17,12 +17,12 @@ Cmd::Cmd(const std::string &name, const CmdFunction &cmdfunc, const std::string 
 {
 }
 
-const std::string &Cmd::GetName()
+const std::string &Cmd::GetName() const
 {
 	return name;
 }
 
-const std::string &Cmd::GetDescription()
+const std::string &Cmd::GetDescription() const
 {
 	return description;
 }
@@ -41,7 +41,7 @@ CmdSystem::~CmdSystem()
 	log.Info("Shutting down command system");
 }
 
-const Cmd &CmdSystem::RegisterCommand(Cmd &cmd)
+const Cmd &CmdSystem::RegisterCommand(const Cmd &cmd)
 {
 	return cmdmap.insert_or_assign(cmd.GetName(), cmd).first->second;
 }
