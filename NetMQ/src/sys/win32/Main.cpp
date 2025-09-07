@@ -62,33 +62,39 @@ struct Socket
 
 	void Bind(const std::string_view port) const
 	{
+		struct AddrInfo
+		{
+			AddrInfo()
+				: addrlocal(nullptr)
+			{
+			}
+
+			~AddrInfo()
+			{
+				if (addrlocal)
+					freeaddrinfo(addrlocal);
+			}
+
+			addrinfo *addrlocal;
+		};
+
 		addrinfo hints = {};
 		hints.ai_flags = AI_PASSIVE;
 		hints.ai_family = AF_INET6;
 		hints.ai_socktype = SOCK_STREAM;
 		hints.ai_protocol = IPPROTO_TCP;
 
-		addrinfo *addrlocal = nullptr;
+		AddrInfo addr;
 		
-		if (getaddrinfo(nullptr, port.data(), &hints, &addrlocal) != 0)
-		{
-			if (addrlocal)
-				freeaddrinfo(addrlocal);
-
+		if (getaddrinfo(nullptr, port.data(), &hints, &addr.addrlocal) != 0)
 			throw std::runtime_error(std::format("getaddrinfo() failed with error: {}", GetErrorMessage(WSAGetLastError())));
-		}
 
-		if (!addrlocal)
+		if (!addr.addrlocal)
 			throw std::runtime_error("getaddrinfo() failed to resolve/convert the interface");
 
-		int ret = bind(socket, addrlocal->ai_addr, (int)addrlocal->ai_addrlen);
+		int ret = bind(socket, addr.addrlocal->ai_addr, (int)addr.addrlocal->ai_addrlen);
 		if (ret == SOCKET_ERROR)
-		{
-			freeaddrinfo(addrlocal);
 			throw std::runtime_error(std::format("bind() failed with error: {}", GetErrorMessage(WSAGetLastError())));
-		}
-
-		freeaddrinfo(addrlocal);
 	}
 
 	void Listen() const
@@ -169,6 +175,9 @@ struct OverlappedIO
 	IOContext *ioctx;
 };
 
+void AddRef(IOContext &ioctx);
+void Release(IOContext &ioctx);
+
 struct IOContext
 {
 	IOContext()
@@ -180,13 +189,22 @@ struct IOContext
 		sendwsabuf(),
 		recving(false),
 		sending(false),
-		iorefcount(),
 		buffer(),
 		subscriptions(),
 		outgoing(),
+		iorefcount(0),
+		closing(false),
 		iter()
 	{
 		outgoing.reserve(100);	// this should be configurable based on the workload
+		AddRef(*this);
+	}
+
+	void CancelOverlappedIO()
+	{
+		CancelIoEx((HANDLE)acceptsocket.GetSocket(), &acceptov.overlapped);
+		CancelIoEx((HANDLE)acceptsocket.GetSocket(), &sendov.overlapped);
+		CancelIoEx((HANDLE)acceptsocket.GetSocket(), &recvov.overlapped);
 	}
 
 	Socket acceptsocket;
@@ -200,11 +218,13 @@ struct IOContext
 
 	std::atomic<bool> recving;
 	std::atomic<bool> sending;
-	std::atomic<unsigned int> iorefcount;
 
 	char buffer[NET_MAX_BUFFER_SIZE];
 	std::unordered_set<std::string> subscriptions;
 	std::string outgoing;
+
+	std::atomic<unsigned int> iorefcount;
+	std::atomic<bool> closing;
 
 	std::list<IOContext>::iterator iter;
 };
@@ -217,7 +237,7 @@ bool PostAccept(const Socket &listensocket);
 void PostRecv(IOContext &ioctx);
 void PostSend(IOContext &ioctx);
 
-void CloseClient(IOContext *ioctx);
+void CloseClient(IOContext &ioctx);
 
 LPFN_ACCEPTEX AcceptExFn;
 
@@ -227,6 +247,22 @@ std::mutex ioctxlistmtx;
 std::atomic<bool> endserver;
 std::atomic<bool> restartserver;
 std::condition_variable cleanupcv;
+
+void AddRef(IOContext &ioctx)
+{
+	ioctx.iorefcount.fetch_add(1, std::memory_order_relaxed);
+}
+
+void Release(IOContext &ioctx)
+{
+	if (ioctx.iorefcount.fetch_sub(1, std::memory_order_acq_rel) == 0)
+	{
+		std::scoped_lock lock(ioctxlistmtx);
+
+		if (ioctx.iter != ioctxlist.end())
+			ioctxlist.erase(ioctx.iter);
+	}
+}
 
 void Publish_Cmd(const std::any &userdata, const CmdArgs &args)
 {
@@ -239,14 +275,17 @@ void Publish_Cmd(const std::any &userdata, const CmdArgs &args)
 
 	(const std::any &)userdata;
 
+	const std::string &topic = args[1];
+	const std::string &value = args[2];
+
 	std::scoped_lock lock(ioctxlistmtx);
 
 	for (IOContext &ioctx : ioctxlist)
 	{
-		if (!ioctx.subscriptions.contains(args[1]) || ioctx.sending)
+		if (!ioctx.subscriptions.contains(topic) || ioctx.sending)
 			continue;
 
-		ioctx.outgoing = args[2];
+		ioctx.outgoing = value;
 
 		PostSend(ioctx);
 	}
@@ -291,7 +330,7 @@ void Exit_Cmd(const std::any &userdata, const CmdArgs &args)
 
 	IOContext *ioctx = std::any_cast<IOContext *>(userdata);
 
-	CloseClient(ioctx);
+	CloseClient(*ioctx);
 }
 
 int main(int argc, char **argv)
@@ -387,20 +426,8 @@ int main(int argc, char **argv)
 				thread.join();
 		}
 
-		{
-			std::scoped_lock lock(ioctxlistmtx);
-
-			for (IOContext &ioctx : ioctxlist)
-			{
-				log.Info("Closing client: {}", ioctx.acceptsocket.GetSocket());
-
-				CancelIoEx((HANDLE)ioctx.acceptsocket.GetSocket(), &ioctx.acceptov.overlapped);
-				CancelIoEx((HANDLE)ioctx.acceptsocket.GetSocket(), &ioctx.sendov.overlapped);
-				CancelIoEx((HANDLE)ioctx.acceptsocket.GetSocket(), &ioctx.recvov.overlapped);
-			}
-
-			ioctxlist.clear();
-		}
+		for (IOContext &ioctx : ioctxlist)
+			CloseClient(ioctx);
 
 		if (restartserver.load())
 			log.Info("NetMQ is restarting...\n");
@@ -515,14 +542,14 @@ void WorkerThread(IOCompletionPort &iocp, Socket &listensocket, CmdSystem &cmd, 
 				if (ret == SOCKET_ERROR)
 				{
 					log.Error("setsockopt(SO_UPDATE_ACCEPT_CONTEXT) failed to update accept socket: {}", GetErrorMessage(WSAGetLastError()));
-					CloseClient(ioctx);
+					CloseClient(*ioctx);
 					return;
 				}
 
 				if (!iocp.UpdateIOCompletionPort(ioctx->acceptsocket, (ULONG_PTR)ioctx->acceptsocket.GetSocket()))
 				{
 					log.Error("UpdateIOCompletionPort() failed to associate iocp handle to accept socket: {}", GetErrorMessage(GetLastError()));
-					CloseClient(ioctx);
+					CloseClient(*ioctx);
 					return;
 				}
 
@@ -535,7 +562,7 @@ void WorkerThread(IOCompletionPort &iocp, Socket &listensocket, CmdSystem &cmd, 
 					if (!PostAccept(listensocket))
 					{
 						log.Error("PostAccept() failed to post an accept for a new client");
-						CloseClient(ioctx);
+						CloseClient(*ioctx);
 						return;
 					}
 				}
@@ -549,7 +576,7 @@ void WorkerThread(IOCompletionPort &iocp, Socket &listensocket, CmdSystem &cmd, 
 
 				if (iosize == 0)	// client closed
 				{
-					CloseClient(ioctx);
+					CloseClient(*ioctx);
 					continue;
 				}
 
@@ -566,11 +593,13 @@ void WorkerThread(IOCompletionPort &iocp, Socket &listensocket, CmdSystem &cmd, 
 
 			case IOOperation::Write:	// a read operation is complete, so post a write back to the client now
 				ioctx->sending = false;
-				ioctx->outgoing.clear();
+				ioctx->outgoing.resize(0);
 				break;
 		}
+
+		Release(*ioctx);
 	}
-};
+}
 
 bool GetAcceptExFnPtr(const Socket &listensocket)
 {
@@ -622,7 +651,7 @@ bool PostAccept(const Socket &listensocket)
 	if (ret == SOCKET_ERROR && (WSAGetLastError() != ERROR_IO_PENDING))
 	{
 		std::cerr << "AcceptEx() failed with error: " << GetErrorMessage(WSAGetLastError()) << std::endl;
-		ioctxlist.erase(iter);
+		Release(ioctx);
 		return false;
 	}
 
@@ -639,12 +668,15 @@ void PostRecv(IOContext &ioctx)
 	ioctx.recvwsabuf.buf = ioctx.buffer;
 	ioctx.recvwsabuf.len = NET_MAX_BUFFER_SIZE;
 
+	AddRef(ioctx);
+
 	DWORD flags = 0;
 	int ret = WSARecv(ioctx.acceptsocket.GetSocket(), &ioctx.recvwsabuf, 1, nullptr, &flags, &ioctx.recvov.overlapped, nullptr);
 	if (ret == SOCKET_ERROR && (WSAGetLastError() != ERROR_IO_PENDING))
 	{
 		std::cerr << "WSARecv() failed with error: " << GetErrorMessage(WSAGetLastError()) << std::endl;
-		CloseClient(&ioctx);
+		Release(ioctx);
+		CloseClient(ioctx);
 		return;
 	}
 
@@ -661,25 +693,29 @@ void PostSend(IOContext &ioctx)
 	ioctx.sendwsabuf.buf = ioctx.outgoing.data();
 	ioctx.sendwsabuf.len = static_cast<ULONG>(ioctx.outgoing.size());
 
+	AddRef(ioctx);
+
 	int ret = WSASend(ioctx.acceptsocket.GetSocket(), &ioctx.sendwsabuf, 1, nullptr, 0, &ioctx.sendov.overlapped, nullptr);
 	if (ret == SOCKET_ERROR && (WSAGetLastError() != ERROR_IO_PENDING))
 	{
 		std::cerr << "WSASend() failed with error: " << GetErrorMessage(WSAGetLastError()) << std::endl;
-		CloseClient(&ioctx);
+		Release(ioctx);
+		CloseClient(ioctx);
 		return;
 	}
 
 	ioctx.sending = true;
 }
 
-void CloseClient(IOContext *ioctx)
+void CloseClient(IOContext &ioctx)
 {
-	std::scoped_lock lock(ioctxlistmtx);
-
-	if (!ioctx)
+	bool expected = false;
+	if (!ioctx.closing.compare_exchange_strong(expected, true, std::memory_order_acq_rel))
 		return;
 
-	std::cout << "Closing client: " << ioctx->acceptsocket.GetSocket() << std::endl;
+	std::cout << "Closing client: " << ioctx.acceptsocket.GetSocket() << std::endl;
 
-	ioctxlist.erase(ioctx->iter);
+	ioctx.CancelOverlappedIO();
+
+	Release(ioctx);
 }
