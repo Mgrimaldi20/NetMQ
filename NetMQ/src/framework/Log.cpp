@@ -34,7 +34,7 @@ Log::~Log()
 	outstream.flush();
 }
 
-void Log::Write(Log::Type type, const std::string &msg)
+void Log::Write(Log::Type type, const std::string &msg) const
 {
 	auto GetTypeStr = [](Log::Type type)
 	{

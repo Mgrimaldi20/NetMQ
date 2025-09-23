@@ -13,8 +13,8 @@ endif()
 if(WIN32)
 	target_sources(NetMQ PRIVATE
 		"src/sys/win32/Main.cpp"
-		"src/sys/win32/WinSockAPI.h"
-		"src/sys/win32/WinSockAPI.cpp"
+		"src/sys/win32/net/WinSockAPI.h"
+		"src/sys/win32/net/WinSockAPI.cpp"
 	)
 elseif(LINUX OR APPLE)
 	target_sources(NetMQ PRIVATE
@@ -24,13 +24,11 @@ endif()
 
 # Specify the common OS independent source files for the NetMQ project.
 target_sources(NetMQ PRIVATE
-	"src/framework/Cmd.h"
-	"src/framework/Cmd.cpp"
-	"src/framework/CmdArgs.h"
-	"src/framework/CmdArgs.cpp"
 	"src/framework/Log.h"
 	"src/framework/Log.cpp"
-)
+	"src/framework/CmdSystem.h"
+	"src/framework/CmdSystem.cpp"
+ "src/framework/cmd/Cmd.h" "src/framework/cmd/PublishCmd.cpp" "src/framework/cmd/PublishCmd.h")
 
 include_directories(src)
 

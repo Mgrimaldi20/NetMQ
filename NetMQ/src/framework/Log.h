@@ -9,7 +9,7 @@
 
 /*
 * Class: Log
-* The logging system, controlls wiritng to a log file or to std::cout streams.
+* The logging system, controls wiritng to a log file or to std::cout streams.
 * Different logging levels are provided to represent the class of information to log.
 * The logger will print the current time, level, and message.
 * 
@@ -25,19 +25,19 @@ public:
 	~Log();
 
 	template <typename ...Args>
-	inline void Info(std::format_string<Args...> fmt, Args &&...args)
+	inline void Info(std::format_string<Args...> fmt, Args &&...args) const
 	{
 		Write(Log::Type::Info, std::format(fmt, std::forward<Args>(args)...));
 	}
 
 	template <typename ...Args>
-	inline void Warn(std::format_string<Args...> fmt, Args &&...args)
+	inline void Warn(std::format_string<Args...> fmt, Args &&...args) const
 	{
 		Write(Log::Type::Warn, std::format(fmt, std::forward<Args>(args)...));
 	}
 
 	template <typename ...Args>
-	inline void Error(std::format_string<Args...> fmt, Args &&...args)
+	inline void Error(std::format_string<Args...> fmt, Args &&...args) const
 	{
 		Write(Log::Type::Error, std::format(fmt, std::forward<Args>(args)...));
 	}
@@ -50,7 +50,7 @@ private:
 		Error
 	};
 
-	void Write(Log::Type type, const std::string &msg);
+	void Write(Log::Type type, const std::string &msg) const;
 
 	std::ofstream logfile;
 	std::ostream &outstream;

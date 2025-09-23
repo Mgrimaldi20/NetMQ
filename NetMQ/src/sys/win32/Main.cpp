@@ -3,9 +3,10 @@
 #endif
 
 #include <Windows.h>
-#include "WinSockAPI.h"
+#include "net/WinSockAPI.h"
 
 #include <iostream>
+#include <cstddef>
 #include <system_error>
 #include <stdexcept>
 #include <string>
@@ -18,13 +19,15 @@
 #include <functional>
 #include <unordered_set>
 #include <list>
+#include <vector>
+#include <any>
 
 #include "framework/Log.h"
-#include "framework/Cmd.h"
+#include "framework/CmdSystem.h"
 
-static constexpr std::string_view NET_DEFAULT_PORT = "5001";
-static constexpr unsigned int NET_DEFAULT_THREADS = 2;
-static constexpr size_t NET_MAX_BUFFER_SIZE = 8192;
+constexpr std::string_view NET_DEFAULT_PORT = "5001";
+constexpr unsigned int NET_DEFAULT_THREADS = 2;
+constexpr size_t NET_MAX_BUFFER_SIZE = 8192;
 
 const std::string GetErrorMessage(const int errcode);
 bool ValidateOptions(int argc, char **argv);
@@ -219,9 +222,9 @@ struct IOContext
 	std::atomic<bool> recving;
 	std::atomic<bool> sending;
 
-	char buffer[NET_MAX_BUFFER_SIZE];
+	std::vector<std::byte> buffer;
+	std::vector<std::byte> outgoing;
 	std::unordered_set<std::string> subscriptions;
-	std::string outgoing;
 
 	std::atomic<unsigned int> iorefcount;
 	std::atomic<bool> closing;
@@ -580,9 +583,6 @@ void WorkerThread(IOCompletionPort &iocp, Socket &listensocket, CmdSystem &cmd, 
 					continue;
 				}
 
-				size_t recvsize = (iosize < NET_MAX_BUFFER_SIZE) ? iosize : (NET_MAX_BUFFER_SIZE - 1);
-				ioctx->buffer[recvsize] = '\0';
-
 				cmd.ExecuteCommand(ioctx, ioctx->buffer);
 
 				// post another read after sending
@@ -640,7 +640,7 @@ bool PostAccept(const Socket &listensocket)
 	int ret = AcceptExFn(
 		listensocket.GetSocket(),
 		ioctx.acceptsocket.GetSocket(),
-		ioctx.buffer,
+		ioctx.buffer.data(),
 		0,
 		sizeof(SOCKADDR_STORAGE) + 16,
 		sizeof(SOCKADDR_STORAGE) + 16,
@@ -665,7 +665,7 @@ void PostRecv(IOContext &ioctx)
 
 	ZeroMemory(&ioctx.recvov.overlapped, sizeof(ioctx.recvov.overlapped));
 
-	ioctx.recvwsabuf.buf = ioctx.buffer;
+	ioctx.recvwsabuf.buf = reinterpret_cast<CHAR *>(ioctx.buffer.data());
 	ioctx.recvwsabuf.len = NET_MAX_BUFFER_SIZE;
 
 	AddRef(ioctx);
@@ -690,7 +690,7 @@ void PostSend(IOContext &ioctx)
 
 	ZeroMemory(&ioctx.sendov.overlapped, sizeof(ioctx.sendov.overlapped));
 
-	ioctx.sendwsabuf.buf = ioctx.outgoing.data();
+	ioctx.sendwsabuf.buf = reinterpret_cast<CHAR *>(ioctx.outgoing.data());
 	ioctx.sendwsabuf.len = static_cast<ULONG>(ioctx.outgoing.size());
 
 	AddRef(ioctx);
