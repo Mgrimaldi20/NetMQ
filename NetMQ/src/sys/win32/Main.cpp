@@ -20,6 +20,7 @@
 #include <unordered_set>
 #include <list>
 #include <vector>
+#include <span>
 #include <any>
 
 #include "framework/Log.h"
@@ -192,9 +193,10 @@ struct IOContext
 		sendwsabuf(),
 		recving(false),
 		sending(false),
-		buffer(),
+		buffer(NET_MAX_BUFFER_SIZE),
 		subscriptions(),
 		outgoing(),
+		acceptbuffer((sizeof(SOCKADDR_STORAGE) + 16) * 2),
 		iorefcount(0),
 		closing(false),
 		iter()
@@ -224,6 +226,8 @@ struct IOContext
 
 	std::vector<std::byte> buffer;
 	std::vector<std::byte> outgoing;
+	std::vector<std::byte> acceptbuffer;
+
 	std::unordered_set<std::string> subscriptions;
 
 	std::atomic<unsigned int> iorefcount;
@@ -258,82 +262,13 @@ void AddRef(IOContext &ioctx)
 
 void Release(IOContext &ioctx)
 {
-	if (ioctx.iorefcount.fetch_sub(1, std::memory_order_acq_rel) == 0)
+	if (ioctx.iorefcount.fetch_sub(1, std::memory_order_acq_rel) == 1)
 	{
 		std::scoped_lock lock(ioctxlistmtx);
 
 		if (ioctx.iter != ioctxlist.end())
 			ioctxlist.erase(ioctx.iter);
 	}
-}
-
-void Publish_Cmd(const std::any &userdata, const CmdArgs &args)
-{
-	const size_t argc = args.GetCount();
-	if ((argc < 3) || (argc > 3))
-	{
-		std::cout << "Usage: " << args[0] << " [topic] [value]" << std::endl;
-		return;
-	}
-
-	(const std::any &)userdata;
-
-	const std::string &topic = args[1];
-	const std::string &value = args[2];
-
-	std::scoped_lock lock(ioctxlistmtx);
-
-	for (IOContext &ioctx : ioctxlist)
-	{
-		if (!ioctx.subscriptions.contains(topic) || ioctx.sending)
-			continue;
-
-		ioctx.outgoing = value;
-
-		PostSend(ioctx);
-	}
-}
-
-void Subscribe_Cmd(const std::any &userdata, const CmdArgs &args)
-{
-	const size_t argc = args.GetCount();
-	if ((argc < 2) || (argc > 2))
-	{
-		std::cout << "Usage: " << args[0] << " [topic]" << std::endl;
-		return;
-	}
-
-	IOContext *ioctx = std::any_cast<IOContext *>(userdata);
-
-	ioctx->subscriptions.insert(args[1]);
-}
-
-void Unsubscribe_Cmd(const std::any &userdata, const CmdArgs &args)
-{
-	const size_t argc = args.GetCount();
-	if ((argc < 2) || (argc > 2))
-	{
-		std::cout << "Usage: " << args[0] << " [topic]" << std::endl;
-		return;
-	}
-
-	IOContext *ioctx = std::any_cast<IOContext *>(userdata);
-
-	ioctx->subscriptions.erase(args[1]);
-}
-
-void Exit_Cmd(const std::any &userdata, const CmdArgs &args)
-{
-	const size_t argc = args.GetCount();
-	if (argc > 1)
-	{
-		std::cout << "Usage: " << args[0] << std::endl;
-		return;
-	}
-
-	IOContext *ioctx = std::any_cast<IOContext *>(userdata);
-
-	CloseClient(*ioctx);
 }
 
 int main(int argc, char **argv)
@@ -346,11 +281,6 @@ int main(int argc, char **argv)
 
 	Log log;
 	CmdSystem cmd(log);
-
-	cmd.RegisterCommand("pub", Publish_Cmd, "Publishes data to a specified topic, best effort");
-	cmd.RegisterCommand("sub", Subscribe_Cmd, "Subscribes to a topic to get incoming data from publisher");
-	cmd.RegisterCommand("unsub", Unsubscribe_Cmd, "Unsubscribe from a topic to stop receiving its data");
-	cmd.RegisterCommand("exit", Exit_Cmd, "Disconnect the client from the server entirely");
 
 	if (!SetConsoleCtrlHandler(CtrlHandler, TRUE))
 	{
@@ -541,7 +471,8 @@ void WorkerThread(IOCompletionPort &iocp, Socket &listensocket, CmdSystem &cmd, 
 			case IOOperation::Accept:
 			{
 				// after AcceptEx completed
-				int ret = setsockopt(ioctx->acceptsocket.GetSocket(), SOL_SOCKET, SO_UPDATE_ACCEPT_CONTEXT, (char *)&listensocket, sizeof(listensocket));
+				SOCKET ls = listensocket.GetSocket();
+				int ret = setsockopt(ioctx->acceptsocket.GetSocket(), SOL_SOCKET, SO_UPDATE_ACCEPT_CONTEXT, reinterpret_cast<char *>(&ls), sizeof(ls));
 				if (ret == SOCKET_ERROR)
 				{
 					log.Error("setsockopt(SO_UPDATE_ACCEPT_CONTEXT) failed to update accept socket: {}", GetErrorMessage(WSAGetLastError()));
@@ -549,7 +480,7 @@ void WorkerThread(IOCompletionPort &iocp, Socket &listensocket, CmdSystem &cmd, 
 					return;
 				}
 
-				if (!iocp.UpdateIOCompletionPort(ioctx->acceptsocket, (ULONG_PTR)ioctx->acceptsocket.GetSocket()))
+				if (!iocp.UpdateIOCompletionPort(ioctx->acceptsocket, static_cast<ULONG_PTR>(ioctx->acceptsocket.GetSocket())))
 				{
 					log.Error("UpdateIOCompletionPort() failed to associate iocp handle to accept socket: {}", GetErrorMessage(GetLastError()));
 					CloseClient(*ioctx);
@@ -583,7 +514,7 @@ void WorkerThread(IOCompletionPort &iocp, Socket &listensocket, CmdSystem &cmd, 
 					continue;
 				}
 
-				cmd.ExecuteCommand(ioctx, ioctx->buffer);
+				cmd.ExecuteCommand(std::span<std::byte>(ioctx->buffer.data(), iosize));
 
 				// post another read after sending
 				PostRecv(*ioctx);
@@ -640,7 +571,7 @@ bool PostAccept(const Socket &listensocket)
 	int ret = AcceptExFn(
 		listensocket.GetSocket(),
 		ioctx.acceptsocket.GetSocket(),
-		ioctx.buffer.data(),
+		ioctx.acceptbuffer.data(),
 		0,
 		sizeof(SOCKADDR_STORAGE) + 16,
 		sizeof(SOCKADDR_STORAGE) + 16,
@@ -666,7 +597,7 @@ void PostRecv(IOContext &ioctx)
 	ZeroMemory(&ioctx.recvov.overlapped, sizeof(ioctx.recvov.overlapped));
 
 	ioctx.recvwsabuf.buf = reinterpret_cast<CHAR *>(ioctx.buffer.data());
-	ioctx.recvwsabuf.len = NET_MAX_BUFFER_SIZE;
+	ioctx.recvwsabuf.len = static_cast<ULONG>(ioctx.buffer.size());
 
 	AddRef(ioctx);
 

@@ -16,6 +16,10 @@
 # Mono auto generated files
 mono_crash.*
 
+# Test files
+*.ps1
+*.bin
+
 # Build results
 [Dd]ebug/
 [Dd]ebugPublic/

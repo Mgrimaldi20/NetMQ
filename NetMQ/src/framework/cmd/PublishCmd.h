@@ -9,14 +9,14 @@
 class PublishCmd : public Cmd
 {
 public:
-	PublishCmd(const std::span<std::byte> topic, const std::span<std::byte> msg);
+	PublishCmd(const std::span<const std::byte> topic, const std::span<const std::byte> msg);
 	virtual ~PublishCmd();
 
 	void Process() override;
 
 protected:
-	std::span<std::byte> topic;
-	std::span<std::byte> msg;
+	const std::span<const std::byte> topic;
+	const std::span<const std::byte> msg;
 };
 
 #endif
