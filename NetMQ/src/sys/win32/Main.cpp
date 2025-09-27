@@ -179,12 +179,9 @@ struct OverlappedIO
 	IOContext *ioctx;
 };
 
-void AddRef(IOContext &ioctx);
-void Release(IOContext &ioctx);
-
 struct IOContext
 {
-	IOContext()
+	IOContext(std::list<IOContext> &ioctxlist, std::mutex &ioctxlistmtx)
 		: acceptsocket(),
 		acceptov(IOOperation::Accept, this),
 		recvov(IOOperation::Read, this),
@@ -199,10 +196,28 @@ struct IOContext
 		acceptbuffer((sizeof(SOCKADDR_STORAGE) + 16) * 2),
 		iorefcount(0),
 		closing(false),
-		iter()
+		iter(),
+		ioctxlist(ioctxlist),
+		ioctxlistmtx(ioctxlistmtx)
 	{
 		outgoing.reserve(100);	// this should be configurable based on the workload
-		AddRef(*this);
+		AddRef();
+	}
+
+	void AddRef()
+	{
+		iorefcount.fetch_add(1, std::memory_order_relaxed);
+	}
+
+	void Release()
+	{
+		if (iorefcount.fetch_sub(1, std::memory_order_acq_rel) == 1)
+		{
+			std::scoped_lock lock(ioctxlistmtx);
+
+			if (iter != ioctxlist.end())
+				ioctxlist.erase(iter);
+		}
 	}
 
 	void CancelOverlappedIO()
@@ -234,6 +249,9 @@ struct IOContext
 	std::atomic<bool> closing;
 
 	std::list<IOContext>::iterator iter;
+
+	std::list<IOContext> &ioctxlist;	// references to the list and its mtx
+	std::mutex &ioctxlistmtx;
 };
 
 void WorkerThread(IOCompletionPort &iocp, Socket &listensocket, CmdSystem &cmd, Log &log);
@@ -254,22 +272,6 @@ std::mutex ioctxlistmtx;
 std::atomic<bool> endserver;
 std::atomic<bool> restartserver;
 std::condition_variable cleanupcv;
-
-void AddRef(IOContext &ioctx)
-{
-	ioctx.iorefcount.fetch_add(1, std::memory_order_relaxed);
-}
-
-void Release(IOContext &ioctx)
-{
-	if (ioctx.iorefcount.fetch_sub(1, std::memory_order_acq_rel) == 1)
-	{
-		std::scoped_lock lock(ioctxlistmtx);
-
-		if (ioctx.iter != ioctxlist.end())
-			ioctxlist.erase(ioctx.iter);
-	}
-}
 
 int main(int argc, char **argv)
 {
@@ -528,7 +530,7 @@ void WorkerThread(IOCompletionPort &iocp, Socket &listensocket, CmdSystem &cmd, 
 				break;
 		}
 
-		Release(*ioctx);
+		ioctx->Release();
 	}
 }
 
@@ -562,7 +564,7 @@ bool PostAccept(const Socket &listensocket)
 {
 	std::scoped_lock lock(ioctxlistmtx);
 
-	std::list<IOContext>::iterator iter = ioctxlist.emplace(ioctxlist.end());
+	std::list<IOContext>::iterator iter = ioctxlist.emplace(ioctxlist.end(), ioctxlist, ioctxlistmtx);
 
 	IOContext &ioctx = *iter;
 	ioctx.iter = iter;
@@ -582,7 +584,7 @@ bool PostAccept(const Socket &listensocket)
 	if (ret == SOCKET_ERROR && (WSAGetLastError() != ERROR_IO_PENDING))
 	{
 		std::cerr << "AcceptEx() failed with error: " << GetErrorMessage(WSAGetLastError()) << std::endl;
-		Release(ioctx);
+		ioctx.Release();
 		return false;
 	}
 
@@ -599,14 +601,14 @@ void PostRecv(IOContext &ioctx)
 	ioctx.recvwsabuf.buf = reinterpret_cast<CHAR *>(ioctx.buffer.data());
 	ioctx.recvwsabuf.len = static_cast<ULONG>(ioctx.buffer.size());
 
-	AddRef(ioctx);
+	ioctx.AddRef();
 
 	DWORD flags = 0;
 	int ret = WSARecv(ioctx.acceptsocket.GetSocket(), &ioctx.recvwsabuf, 1, nullptr, &flags, &ioctx.recvov.overlapped, nullptr);
 	if (ret == SOCKET_ERROR && (WSAGetLastError() != ERROR_IO_PENDING))
 	{
 		std::cerr << "WSARecv() failed with error: " << GetErrorMessage(WSAGetLastError()) << std::endl;
-		Release(ioctx);
+		ioctx.Release();
 		CloseClient(ioctx);
 		return;
 	}
@@ -624,13 +626,13 @@ void PostSend(IOContext &ioctx)
 	ioctx.sendwsabuf.buf = reinterpret_cast<CHAR *>(ioctx.outgoing.data());
 	ioctx.sendwsabuf.len = static_cast<ULONG>(ioctx.outgoing.size());
 
-	AddRef(ioctx);
+	ioctx.AddRef();
 
 	int ret = WSASend(ioctx.acceptsocket.GetSocket(), &ioctx.sendwsabuf, 1, nullptr, 0, &ioctx.sendov.overlapped, nullptr);
 	if (ret == SOCKET_ERROR && (WSAGetLastError() != ERROR_IO_PENDING))
 	{
 		std::cerr << "WSASend() failed with error: " << GetErrorMessage(WSAGetLastError()) << std::endl;
-		Release(ioctx);
+		ioctx.Release();
 		CloseClient(ioctx);
 		return;
 	}
@@ -648,5 +650,5 @@ void CloseClient(IOContext &ioctx)
 
 	ioctx.CancelOverlappedIO();
 
-	Release(ioctx);
+	ioctx.Release();
 }
