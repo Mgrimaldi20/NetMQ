@@ -3,7 +3,11 @@
 #include <array>
 
 #include "cmd/Cmd.h"
+#include "cmd/ConnectCmd.h"
 #include "cmd/PublishCmd.h"
+#include "cmd/SubscribeCmd.h"
+#include "cmd/UnsubscribeCmd.h"
+#include "cmd/DisconnectCmd.h"
 #include "CmdSystem.h"
 
 constexpr size_t CMD_HEADER_SIZE = 5;
@@ -64,12 +68,8 @@ void CmdSystem::ExecuteCommand(const std::span<std::byte> incoming)
 	{
 		case Cmd::Type::Connect:
 		{
-			/*log.Info("Clinet: {} connecting with configuration: {}");
-
-			ConnectCmd conn(config);
+			ConnectCmd conn;
 			conn();
-
-			log.Info("Client: {} connected successfully");*/
 
 			break;
 		}
@@ -97,10 +97,8 @@ void CmdSystem::ExecuteCommand(const std::span<std::byte> incoming)
 			offset += ReadU32BigEndian(incoming, offset, topiclen);
 			std::span<std::byte> topic(incoming.subspan(offset, topiclen));
 
-			/*SubscribeCmd sub(topic);
+			SubscribeCmd sub(topic);
 			sub();
-
-			log.Info("Client: {} has subscribed to topic: {}");*/
 
 			break;
 		}
@@ -111,20 +109,16 @@ void CmdSystem::ExecuteCommand(const std::span<std::byte> incoming)
 			offset += ReadU32BigEndian(incoming, offset, topiclen);
 			std::span<std::byte> topic(incoming.subspan(offset, topiclen));
 
-			/*UnsubscribeCmd unsub(topic);
+			UnsubscribeCmd unsub(topic);
 			unsub();
-
-			log.Info("Client: {} has unsubscribed from topic: {}");*/
 
 			break;
 		}
 
 		case Cmd::Type::Disconnect:
 		{
-			/*DisconnectCmd disconn;
+			DisconnectCmd disconn;
 			disconn();
-
-			log.Info("Client: {} has disconnected");*/
 
 			break;
 		}

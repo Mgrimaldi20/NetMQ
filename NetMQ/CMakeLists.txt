@@ -28,7 +28,7 @@ target_sources(NetMQ PRIVATE
 	"src/framework/Log.cpp"
 	"src/framework/CmdSystem.h"
 	"src/framework/CmdSystem.cpp"
- "src/framework/cmd/Cmd.h" "src/framework/cmd/PublishCmd.cpp" "src/framework/cmd/PublishCmd.h")
+ "src/framework/cmd/Cmd.h" "src/framework/cmd/PublishCmd.cpp" "src/framework/cmd/PublishCmd.h" "src/framework/cmd/SubscribeCmd.h" "src/framework/cmd/SubscribeCmd.cpp" "src/framework/cmd/ConnectCmd.h" "src/framework/cmd/ConnectCmd.cpp" "src/framework/cmd/UnsubscribeCmd.cpp" "src/framework/cmd/UnsubscribeCmd.h" "src/framework/cmd/DisconnectCmd.h" "src/framework/cmd/DisconnectCmd.cpp")
 
 include_directories(src)
 
