@@ -357,7 +357,7 @@ int main(int argc, char **argv)
 			log.Info("NetMQ is restarting...\n");
 
 		else
-	log.Info("NetMQ is exiting...");
+			log.Info("NetMQ is exiting...");
 	}
 
 	SetConsoleCtrlHandler(CtrlHandler, FALSE);
