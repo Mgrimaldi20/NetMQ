@@ -8,6 +8,7 @@ Log::Log()
 	: outstream(std::cout),
 	logname("COUT")
 {
+	Info("Log opened: {}", logname);
 }
 
 Log::Log(const std::filesystem::path &fullpath)
@@ -25,6 +26,8 @@ Log::Log(const std::filesystem::path &fullpath)
 	logfile.open(fullpath.string());
 
 	logname = fullpath.filename().string();
+
+	Info("Log opened: {}", logname);
 }
 
 Log::~Log()

@@ -40,7 +40,7 @@ namespace
 CmdSystem::CmdSystem(const Log &log)
 	: log(log)
 {
-	log.Info("Starting up the command system");
+	log.Info("Command system started");
 }
 
 CmdSystem::~CmdSystem()
