@@ -1,4 +1,4 @@
-#include "DisconnectCmd.h"
+#include "Cmd.h"
 
 DisconnectCmd::DisconnectCmd()
 {
@@ -8,6 +8,6 @@ DisconnectCmd::~DisconnectCmd()
 {
 }
 
-void DisconnectCmd::Process()
+void DisconnectCmd::operator()() const
 {
 }

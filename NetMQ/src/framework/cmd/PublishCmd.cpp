@@ -1,8 +1,6 @@
-#include "PublishCmd.h"
+#include "Cmd.h"
 
-PublishCmd::PublishCmd(const std::span<const std::byte> &topic, const std::span<const std::byte> &msg)
-	: topic(topic),
-	msg(msg)
+PublishCmd::PublishCmd(const std::span<const std::byte> &params)
 {
 }
 
@@ -10,6 +8,6 @@ PublishCmd::~PublishCmd()
 {
 }
 
-void PublishCmd::Process()
+void PublishCmd::operator()() const
 {
 }

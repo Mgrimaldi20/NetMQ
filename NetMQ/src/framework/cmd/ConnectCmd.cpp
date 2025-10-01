@@ -1,4 +1,4 @@
-#include "ConnectCmd.h"
+#include "Cmd.h"
 
 ConnectCmd::ConnectCmd()
 {
@@ -8,6 +8,6 @@ ConnectCmd::~ConnectCmd()
 {
 }
 
-void ConnectCmd::Process()
+void ConnectCmd::operator()() const
 {
 }

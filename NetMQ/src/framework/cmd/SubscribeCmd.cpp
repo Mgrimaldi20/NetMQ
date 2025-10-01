@@ -1,7 +1,6 @@
-#include "SubscribeCmd.h"
+#include "Cmd.h"
 
-SubscribeCmd::SubscribeCmd(const std::span<const std::byte> &topic)
-	: topic(topic)
+SubscribeCmd::SubscribeCmd(const std::span<const std::byte> &params)
 {
 }
 
@@ -9,6 +8,6 @@ SubscribeCmd::~SubscribeCmd()
 {
 }
 
-void SubscribeCmd::Process()
+void SubscribeCmd::operator()() const
 {
 }
