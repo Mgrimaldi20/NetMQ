@@ -1,10 +1,6 @@
 #include "Cmd.h"
 
-ConnectCmd::ConnectCmd()
-{
-}
-
-ConnectCmd::~ConnectCmd()
+ConnectCmd::ConnectCmd() noexcept
 {
 }
 

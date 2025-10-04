@@ -2,20 +2,22 @@
 #define _NETMQ_CMDSYSTEM_H_
 
 #include <cstddef>
+#include <memory>
 #include <span>
 
+#include "cmd/Cmd.h"
 #include "Log.h"
 
 class CmdSystem
 {
 public:
-	CmdSystem(const Log &log);
+	CmdSystem(Log &log);
 	~CmdSystem();
 
-	void ExecuteCommand(const std::span<std::byte> incoming);
+	std::unique_ptr<Cmd> ParseNetCommand(const std::span<std::byte> incoming);
 
 private:
-	const Log &log;
+	Log &log;
 };
 
 #endif

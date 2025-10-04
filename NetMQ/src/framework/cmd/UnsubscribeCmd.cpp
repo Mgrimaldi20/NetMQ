@@ -1,11 +1,12 @@
 #include "Cmd.h"
 
-UnsubscribeCmd::UnsubscribeCmd(const std::span<const std::byte> &params)
+UnsubscribeCmd::UnsubscribeCmd(const std::span<std::byte> &params) noexcept
 {
-}
+	size_t offset = 0;
 
-UnsubscribeCmd::~UnsubscribeCmd()
-{
+	uint32_t topiclen = 0;
+	offset += CmdUtil::ReadU32BigEndian(params, offset, topiclen);
+	topic = params.subspan(offset, topiclen);
 }
 
 void UnsubscribeCmd::operator()() const

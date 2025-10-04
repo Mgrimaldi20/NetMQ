@@ -1,10 +1,6 @@
 #include "Cmd.h"
 
-DisconnectCmd::DisconnectCmd()
-{
-}
-
-DisconnectCmd::~DisconnectCmd()
+DisconnectCmd::DisconnectCmd() noexcept
 {
 }
 
