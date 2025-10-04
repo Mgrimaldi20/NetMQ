@@ -33,7 +33,10 @@ std::unique_ptr<Cmd> CmdSystem::ParseNetCommand(const std::span<std::byte> incom
 
 	std::span<std::byte, CMD_HEADER_SIZE> header(incoming.subspan(offset += CMD_HEADER_SIZE, CMD_HEADER_SIZE));
 	if (!std::equal(header.begin(), header.end(), CMD_HEADER.begin()))
-		throw std::runtime_error("Header does not match the expected value");
+	{
+		log.Warn("Header does not match the expected value");
+		return nullptr;
+	}
 
 	const Cmd::Type type = static_cast<Cmd::Type>(std::to_integer<uint8_t>(incoming[offset++]));
 	const std::span<std::byte> params = incoming.subspan(offset, (incoming.size() - offset));
@@ -55,6 +58,8 @@ std::unique_ptr<Cmd> CmdSystem::ParseNetCommand(const std::span<std::byte> incom
 		case Cmd::Type::Disconnect:
 			return std::make_unique<DisconnectCmd>();
 
-		default: throw std::runtime_error("Unknown command type parsed");
+		default:
+			log.Warn("Unknown command type parsed");
+			return nullptr;
 	}
 }

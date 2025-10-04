@@ -7,7 +7,7 @@
 
 namespace CmdUtil
 {
-	size_t ReadU32BigEndian(const std::span<const std::byte> const &buffer, const size_t offset, uint32_t &out) noexcept;
+	size_t ReadU32BigEndian(const std::span<const std::byte> &buffer, const size_t offset, uint32_t &out) noexcept;
 }
 
 class Cmd
@@ -21,6 +21,8 @@ public:
 		Unsubscribe,
 		Disconnect
 	};
+
+	virtual ~Cmd() {}
 
 	virtual void operator()() const = 0;
 };

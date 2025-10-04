@@ -1,6 +1,6 @@
 #include "Cmd.h"
 
-size_t CmdUtil::ReadU32BigEndian(const std::span<const std::byte> const &buffer, const size_t offset, uint32_t &out) noexcept
+size_t CmdUtil::ReadU32BigEndian(const std::span<const std::byte> &buffer, const size_t offset, uint32_t &out) noexcept
 {
 	if (buffer.size() - out < 4)
 		return 0;

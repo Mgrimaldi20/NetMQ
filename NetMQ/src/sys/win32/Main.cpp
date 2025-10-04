@@ -505,16 +505,10 @@ void WorkerThread(IOCompletionPort &iocp, Socket &listensocket, CmdSystem &cmd, 
 					continue;
 				}
 
-				try
-				{
-					std::unique_ptr<Cmd> command = cmd.ParseNetCommand(std::span<std::byte>(ioctx->buffer.data(), iosize));
+				std::unique_ptr<Cmd> command = cmd.ParseNetCommand(std::span<std::byte>(ioctx->buffer.data(), iosize));
+
+				if (command)
 					(*command)();
-				} 
-				
-				catch (const std::exception &e)
-				{
-					log.Warn("Dropping message: {}", e.what());
-				}
 
 				// post another read after sending
 				PostRecv(ioctx);
