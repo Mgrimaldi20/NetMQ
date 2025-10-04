@@ -506,7 +506,6 @@ void WorkerThread(IOCompletionPort &iocp, Socket &listensocket, CmdSystem &cmd, 
 				}
 
 				std::unique_ptr<Cmd> command = cmd.ParseNetCommand(std::span<std::byte>(ioctx->buffer.data(), iosize));
-
 				if (command)
 					(*command)();
 

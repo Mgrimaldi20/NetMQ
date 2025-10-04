@@ -31,12 +31,14 @@ std::unique_ptr<Cmd> CmdSystem::ParseNetCommand(const std::span<std::byte> incom
 {
 	size_t offset = 0;
 
-	std::span<std::byte, CMD_HEADER_SIZE> header(incoming.subspan(offset += CMD_HEADER_SIZE, CMD_HEADER_SIZE));
+	std::span<std::byte, CMD_HEADER_SIZE> header(incoming.subspan(offset, CMD_HEADER_SIZE));
 	if (!std::equal(header.begin(), header.end(), CMD_HEADER.begin()))
 	{
 		log.Warn("Header does not match the expected value");
 		return nullptr;
 	}
+
+	offset += header.size();
 
 	const Cmd::Type type = static_cast<Cmd::Type>(std::to_integer<uint8_t>(incoming[offset++]));
 	const std::span<std::byte> params = incoming.subspan(offset, (incoming.size() - offset));
