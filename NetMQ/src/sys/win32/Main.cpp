@@ -144,7 +144,7 @@ struct IOCompletionPort
 		return true;
 	}
 
-	bool GetQueuedCompletionStatus(unsigned long *iosize, unsigned long long *completionkey, WSAOVERLAPPED **wsaoverlapped)
+	bool GetQueuedCompletionStatus(unsigned long *iosize, unsigned long long *completionkey, WSAOVERLAPPED **wsaoverlapped) const
 	{
 		return ::GetQueuedCompletionStatus(iocp, iosize, completionkey, wsaoverlapped, INFINITE);
 	}
@@ -245,15 +245,15 @@ struct IOContext
 	std::atomic<bool> closing;
 };
 
-void WorkerThread(IOCompletionPort &iocp, Socket &listensocket, CmdSystem &cmd, Log &log);
+void WorkerThread(const IOCompletionPort &iocp, const Socket &listensocket, const CmdSystem &cmd, const Log &log);
 
-bool GetAcceptExFnPtr(const Socket &listensocket);
+bool GetAcceptExFnPtr(const Socket &listensocket, const Log &log);
 
-bool PostAccept(const Socket &listensocket);
-void PostRecv(std::shared_ptr<IOContext>);
-void PostSend(std::shared_ptr<IOContext>);
+bool PostAccept(const Socket &listensocket, const Log &log);
+void PostRecv(std::shared_ptr<IOContext>, const Log &log);
+void PostSend(std::shared_ptr<IOContext>, const Log &log);
 
-void CloseClient(std::shared_ptr<IOContext>);
+void CloseClient(std::shared_ptr<IOContext>, const Log &log);
 
 LPFN_ACCEPTEX AcceptExFn;
 
@@ -301,14 +301,14 @@ int main(int argc, char **argv)
 			return 1;
 		}
 
-		if (!GetAcceptExFnPtr(listensocket))
+		if (!GetAcceptExFnPtr(listensocket, log))
 		{
 			log.Error("GetAcceptExFnPtr() failed");
 			SetConsoleCtrlHandler(CtrlHandler, FALSE);
 			return 1;
 		}
 
-		if (!PostAccept(listensocket))
+		if (!PostAccept(listensocket, log))
 		{
 			log.Error("PostAccept() failed (initial)");
 			SetConsoleCtrlHandler(CtrlHandler, FALSE);
@@ -326,7 +326,7 @@ int main(int argc, char **argv)
 
 		std::vector<std::thread> threads;
 		for (unsigned int i=0; i<numthreads; i++)
-			threads.emplace_back(WorkerThread, std::ref(iocp), std::ref(listensocket), std::ref(cmd), std::ref(log));
+			threads.emplace_back(WorkerThread, std::ref( iocp), std::ref(listensocket), std::ref(cmd), std::ref(log));
 
 		log.Info("Number of threads available: {}", numthreads);
 		log.Info("NetMQ server running on port: {}", NET_DEFAULT_PORT);
@@ -430,7 +430,7 @@ BOOL WINAPI CtrlHandler(DWORD event)
 	return TRUE;
 }
 
-void WorkerThread(IOCompletionPort &iocp, Socket &listensocket, CmdSystem &cmd, Log &log)
+void WorkerThread(const IOCompletionPort &iocp, const Socket &listensocket, const CmdSystem &cmd, const Log &log)
 {
 	DWORD iosize = 0;
 	ULONG_PTR completionkey = 0;
@@ -467,27 +467,27 @@ void WorkerThread(IOCompletionPort &iocp, Socket &listensocket, CmdSystem &cmd, 
 				if (ret == SOCKET_ERROR)
 				{
 					log.Error("setsockopt(SO_UPDATE_ACCEPT_CONTEXT) failed to update accept socket: {}", GetErrorMessage(WSAGetLastError()));
-					CloseClient(ioctx);
+					CloseClient(ioctx, log);
 					return;
 				}
 
 				if (!iocp.UpdateIOCompletionPort(ioctx->acceptsocket, static_cast<ULONG_PTR>(ioctx->acceptsocket.GetSocket())))
 				{
 					log.Error("UpdateIOCompletionPort() failed to associate iocp handle to accept socket: {}", GetErrorMessage(GetLastError()));
-					CloseClient(ioctx);
+					CloseClient(ioctx, log);
 					return;
 				}
 
 				// start a read from a new client
-				PostRecv(ioctx);
+				PostRecv(ioctx, log);
 
 				// post another accept for a new client if the server isnt stopping
 				if (!endserver.load())
 				{
-					if (!PostAccept(listensocket))
+					if (!PostAccept(listensocket, log))
 					{
 						log.Error("PostAccept() failed to post an accept for a new client");
-						CloseClient(ioctx);
+						CloseClient(ioctx, log);
 						return;
 					}
 				}
@@ -501,16 +501,16 @@ void WorkerThread(IOCompletionPort &iocp, Socket &listensocket, CmdSystem &cmd, 
 
 				if (iosize == 0)	// client closed
 				{
-					CloseClient(ioctx);
+					CloseClient(ioctx, log);
 					continue;
 				}
 
-				std::unique_ptr<Cmd> command = cmd.ParseNetCommand(std::span<std::byte>(ioctx->buffer.data(), iosize));
+				std::unique_ptr<Cmd> command = cmd.ParseCommand(std::span<std::byte>(ioctx->buffer.data(), iosize));
 				if (command)
 					(*command)();
 
 				// post another read after sending
-				PostRecv(ioctx);
+				PostRecv(ioctx, log);
 
 				break;
 			}
@@ -523,7 +523,7 @@ void WorkerThread(IOCompletionPort &iocp, Socket &listensocket, CmdSystem &cmd, 
 	}
 }
 
-bool GetAcceptExFnPtr(const Socket &listensocket)
+bool GetAcceptExFnPtr(const Socket &listensocket, const Log &log)
 {
 	GUID acceptexguid = WSAID_ACCEPTEX;
 	DWORD bytes = 0;
@@ -542,14 +542,14 @@ bool GetAcceptExFnPtr(const Socket &listensocket)
 
 	if (ret == SOCKET_ERROR)
 	{
-		std::cerr << "WSAIoctl() failed to retrieve AcceptEx function address with error: " << GetErrorMessage(WSAGetLastError()) << std::endl;
+		log.Error("WSAIoctl() failed to retrieve AcceptEx function address with error: {}", GetErrorMessage(WSAGetLastError()));
 		return false;
 	}
 
 	return true;
 }
 
-bool PostAccept(const Socket &listensocket)
+bool PostAccept(const Socket &listensocket, const Log &log)
 {
 	std::scoped_lock lock(ioctxlistmtx);
 
@@ -572,7 +572,7 @@ bool PostAccept(const Socket &listensocket)
 
 	if (ret == SOCKET_ERROR && (WSAGetLastError() != ERROR_IO_PENDING))
 	{
-		std::cerr << "AcceptEx() failed with error: " << GetErrorMessage(WSAGetLastError()) << std::endl;
+		log.Error("AcceptEx() failed with error: {}", GetErrorMessage(WSAGetLastError()));
 		ioctxlist.remove(ioctx);
 		return false;
 	}
@@ -580,7 +580,7 @@ bool PostAccept(const Socket &listensocket)
 	return true;
 }
 
-void PostRecv(std::shared_ptr<IOContext> ioctx)
+void PostRecv(std::shared_ptr<IOContext> ioctx, const Log &log)
 {
 	if (ioctx->recving)
 		return;
@@ -594,15 +594,15 @@ void PostRecv(std::shared_ptr<IOContext> ioctx)
 	int ret = WSARecv(ioctx->acceptsocket.GetSocket(), &ioctx->recvwsabuf, 1, nullptr, &flags, &ioctx->recvov.overlapped, nullptr);
 	if (ret == SOCKET_ERROR && (WSAGetLastError() != ERROR_IO_PENDING))
 	{
-		std::cerr << "WSARecv() failed with error: " << GetErrorMessage(WSAGetLastError()) << std::endl;
-		CloseClient(ioctx);
+		log.Error("WSARecv() failed with error: {}", GetErrorMessage(WSAGetLastError()));
+		CloseClient(ioctx, log);
 		return;
 	}
 
 	ioctx->recving = true;
 }
 
-void PostSend(std::shared_ptr<IOContext> ioctx)
+void PostSend(std::shared_ptr<IOContext> ioctx, const Log &log)
 {
 	if (ioctx->sending || ioctx->outgoing.empty())
 		return;
@@ -615,21 +615,21 @@ void PostSend(std::shared_ptr<IOContext> ioctx)
 	int ret = WSASend(ioctx->acceptsocket.GetSocket(), &ioctx->sendwsabuf, 1, nullptr, 0, &ioctx->sendov.overlapped, nullptr);
 	if (ret == SOCKET_ERROR && (WSAGetLastError() != ERROR_IO_PENDING))
 	{
-		std::cerr << "WSASend() failed with error: " << GetErrorMessage(WSAGetLastError()) << std::endl;
-		CloseClient(ioctx);
+		log.Error("WSASend() failed with error: {}", GetErrorMessage(WSAGetLastError()));
+		CloseClient(ioctx, log);
 		return;
 	}
 
 	ioctx->sending = true;
 }
 
-void CloseClient(std::shared_ptr<IOContext> ioctx)
+void CloseClient(std::shared_ptr<IOContext> ioctx, const Log &log)
 {
 	bool expected = false;
 	if (!ioctx->closing.compare_exchange_strong(expected, true, std::memory_order_acq_rel))
 		return;
 
-	std::cout << "Closing client: " << ioctx->acceptsocket.GetSocket() << std::endl;
+	log.Info("Closing client: {}", ioctx->acceptsocket.GetSocket());
 
 	{
 		std::scoped_lock lock(ioctxlistmtx);

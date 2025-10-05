@@ -1,4 +1,3 @@
-#include <stdexcept>
 #include <algorithm>
 #include <array>
 
@@ -27,7 +26,7 @@ CmdSystem::~CmdSystem()
 	log.Info("Shutting down the command system");
 }
 
-std::unique_ptr<Cmd> CmdSystem::ParseNetCommand(const std::span<std::byte> incoming)
+std::unique_ptr<Cmd> CmdSystem::ParseCommand(const std::span<std::byte> incoming) const
 {
 	size_t offset = 0;
 

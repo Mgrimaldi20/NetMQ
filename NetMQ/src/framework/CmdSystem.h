@@ -14,7 +14,7 @@ public:
 	CmdSystem(Log &log);
 	~CmdSystem();
 
-	std::unique_ptr<Cmd> ParseNetCommand(const std::span<std::byte> incoming);
+	std::unique_ptr<Cmd> ParseCommand(const std::span<std::byte> incoming) const;
 
 private:
 	Log &log;
