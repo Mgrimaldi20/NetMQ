@@ -15,7 +15,9 @@ if(WIN32)
 		"src/sys/win32/Main.cpp"
 		"src/sys/win32/net/WinSockAPI.h"
 		"src/sys/win32/net/WinSockAPI.cpp"
-	)
+		"src/sys/win32/io/IOContext.h"
+		"src/sys/win32/io/IOContext.cpp"
+	 "src/sys/win32/SysCmd.cpp" "src/sys/win32/net/Socket.h" "src/sys/win32/net/Socket.cpp" "src/sys/win32/io/OverlappedIO.h" "src/sys/win32/io/OverlappedIO.cpp" "src/sys/win32/io/IOOperation.h")
 elseif(LINUX OR APPLE)
 	target_sources(NetMQ PRIVATE
 		"src/sys/posix/Main.cpp"
@@ -30,11 +32,12 @@ target_sources(NetMQ PRIVATE
 	"src/framework/CmdSystem.cpp"
 	"src/framework/cmd/Cmd.h"
 	"src/framework/cmd/Cmd.cpp"
-	"src/framework/cmd/PublishCmd.cpp"
-	"src/framework/cmd/SubscribeCmd.cpp"
-	"src/framework/cmd/ConnectCmd.cpp"
-	"src/framework/cmd/UnsubscribeCmd.cpp"
-	"src/framework/cmd/DisconnectCmd.cpp"
+	
+	
+	
+	
+	
+	"src/sys/SysCmd.h"
 )
 
 include_directories(src)

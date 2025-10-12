@@ -22,64 +22,61 @@ public:
 		Disconnect
 	};
 
-	virtual ~Cmd() {}
+	virtual ~Cmd() = default;
 
 	virtual void operator()() const = 0;
 };
 
 class ConnectCmd : public Cmd
 {
-public:
-	ConnectCmd() noexcept;
-	virtual ~ConnectCmd() {}
+protected:
+	ConnectCmd(const std::span<std::byte> &params) noexcept;
+	virtual ~ConnectCmd() = default;
 
-	void operator()() const override;
+	void operator()() const override final {}
 };
 
 class PublishCmd : public Cmd
 {
-public:
+protected:
 	PublishCmd(const std::span<std::byte> &params) noexcept;
-	virtual ~PublishCmd() {}
+	virtual ~PublishCmd() = default;
 
-	void operator()() const override;
+	void operator()() const override final {}
 
-private:
 	std::span<std::byte> topic;
 	std::span<std::byte> msg;
 };
 
 class SubscribeCmd : public Cmd
 {
-public:
+protected:
 	SubscribeCmd(const std::span<std::byte> &params) noexcept;
-	virtual ~SubscribeCmd() {}
+	virtual ~SubscribeCmd() = default;
 
-	void operator()() const override;
+	void operator()() const override final {}
 
-private:
 	std::span<std::byte> topic;
 };
 
 class UnsubscribeCmd : public Cmd
 {
-public:
+protected:
 	UnsubscribeCmd(const std::span<std::byte> &params) noexcept;
-	virtual ~UnsubscribeCmd() {}
+	virtual ~UnsubscribeCmd() = default;
 
-	void operator()() const override;
+	void operator()() const override final {}
 
-private:
 	std::span<std::byte> topic;
 };
 
 class DisconnectCmd : public Cmd
 {
-public:
-	DisconnectCmd() noexcept;
-	virtual ~DisconnectCmd() {}
+protected:
+	DisconnectCmd(const std::span<std::byte> &params) noexcept;
+	virtual ~DisconnectCmd() = default;
 
-	void operator()() const override;
+	void operator()() const override final {}
 };
 
 #endif

@@ -4,6 +4,8 @@
 #include "cmd/Cmd.h"
 #include "CmdSystem.h"
 
+#include "sys/SysCmd.h"
+
 constexpr size_t CMD_HEADER_SIZE = 5;
 
 constexpr std::array<std::byte, CMD_HEADER_SIZE> CMD_HEADER =
@@ -39,25 +41,28 @@ std::unique_ptr<Cmd> CmdSystem::ParseCommand(const std::span<std::byte> incoming
 
 	offset += header.size();
 
-	const Cmd::Type type = static_cast<Cmd::Type>(std::to_integer<uint8_t>(incoming[offset++]));
+	uint32_t cmdnum = 0;
+	offset += CmdUtil::ReadU32BigEndian(incoming, offset, cmdnum);
+	const Cmd::Type type = static_cast<Cmd::Type>(cmdnum);
+
 	const std::span<std::byte> params = incoming.subspan(offset, (incoming.size() - offset));
 
 	switch (type)
 	{
 		case Cmd::Type::Connect:
-			return std::make_unique<ConnectCmd>();
+			return std::make_unique<ConnectSysCmd>(params);
 
 		case Cmd::Type::Publish:
-			return std::make_unique<PublishCmd>(params);
+			return std::make_unique<PublishSysCmd>(params);
 
 		case Cmd::Type::Subscribe:
-			return std::make_unique<SubscribeCmd>(params);
+			return std::make_unique<SubscribeSysCmd>(params);
 
 		case Cmd::Type::Unsubscribe:
-			return std::make_unique<UnsubscribeCmd>(params);
+			return std::make_unique<UnsubscribeSysCmd>(params);
 
 		case Cmd::Type::Disconnect:
-			return std::make_unique<DisconnectCmd>();
+			return std::make_unique<DisconnectSysCmd>(params);
 
 		default:
 			log.Warn("Unknown command type parsed");

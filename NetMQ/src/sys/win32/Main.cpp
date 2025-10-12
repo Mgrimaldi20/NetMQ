@@ -27,95 +27,15 @@
 #include "framework/Log.h"
 #include "framework/CmdSystem.h"
 
+#include "net/Socket.h"
+#include "io/IOContext.h"
+
 constexpr std::string_view NET_DEFAULT_PORT = "5001";
 constexpr unsigned int NET_DEFAULT_THREADS = 2;
-constexpr size_t NET_MAX_BUFFER_SIZE = 8192;
 
 const std::string GetErrorMessage(const int errcode);
 bool ValidateOptions(int argc, char **argv);
 BOOL WINAPI CtrlHandler(DWORD event);
-
-struct Socket
-{
-	Socket()
-		: socket(INVALID_SOCKET)
-	{
-		socket = WSASocket(AF_INET6, SOCK_STREAM, IPPROTO_TCP, nullptr, 0, WSA_FLAG_OVERLAPPED);
-		if (socket == INVALID_SOCKET)
-			throw std::runtime_error(std::format("WSASocket() failed with error: {}", GetErrorMessage(WSAGetLastError())));
-
-		int zero = 0;
-		int ret = setsockopt(socket, SOL_SOCKET, SO_SNDBUF, (char *)&zero, sizeof(zero));
-		if (ret == SOCKET_ERROR)
-		{
-			shutdown(socket, SD_BOTH);
-			closesocket(socket);
-			socket = INVALID_SOCKET;
-			throw std::runtime_error(std::format("setsockopt(SO_SNDBUF) failed with error: {}", GetErrorMessage(WSAGetLastError())));
-		}
-	}
-
-	~Socket()
-	{
-		if (socket != INVALID_SOCKET)
-		{
-			shutdown(socket, SD_BOTH);
-			closesocket(socket);
-			socket = INVALID_SOCKET;
-		}
-	}
-
-	void Bind(const std::string_view port) const
-	{
-		struct AddrInfo
-		{
-			AddrInfo()
-				: addrlocal(nullptr)
-			{
-			}
-
-			~AddrInfo()
-			{
-				if (addrlocal)
-					freeaddrinfo(addrlocal);
-			}
-
-			addrinfo *addrlocal;
-		};
-
-		addrinfo hints = {};
-		hints.ai_flags = AI_PASSIVE;
-		hints.ai_family = AF_INET6;
-		hints.ai_socktype = SOCK_STREAM;
-		hints.ai_protocol = IPPROTO_TCP;
-
-		AddrInfo addr;
-		
-		if (getaddrinfo(nullptr, port.data(), &hints, &addr.addrlocal) != 0)
-			throw std::runtime_error(std::format("getaddrinfo() failed with error: {}", GetErrorMessage(WSAGetLastError())));
-
-		if (!addr.addrlocal)
-			throw std::runtime_error("getaddrinfo() failed to resolve/convert the interface");
-
-		int ret = bind(socket, addr.addrlocal->ai_addr, (int)addr.addrlocal->ai_addrlen);
-		if (ret == SOCKET_ERROR)
-			throw std::runtime_error(std::format("bind() failed with error: {}", GetErrorMessage(WSAGetLastError())));
-	}
-
-	void Listen() const
-	{
-		int ret = listen(socket, SOMAXCONN);
-		if (ret == SOCKET_ERROR)
-			throw std::runtime_error(std::format("listen() failed with error: {}", GetErrorMessage(WSAGetLastError())));
-	}
-
-	const SOCKET &GetSocket() const
-	{
-		return socket;
-	}
-
-	SOCKET socket;
-};
 
 struct IOCompletionPort
 {
@@ -136,7 +56,7 @@ struct IOCompletionPort
 		}
 	}
 
-	bool UpdateIOCompletionPort(const Socket &socket, ULONG_PTR completionkey) const
+	bool UpdateIOCompletionPort(Socket &socket, ULONG_PTR completionkey) const
 	{
 		if (!CreateIoCompletionPort((HANDLE)socket.GetSocket(), iocp, completionkey, 0))
 			return false;
@@ -157,103 +77,11 @@ struct IOCompletionPort
 	HANDLE iocp;
 };
 
-struct IOContext;
+void WorkerThread(const IOCompletionPort &iocp, Socket &listensocket, const CmdSystem &cmd, Log &log);
 
-enum class IOOperation
-{
-	Accept,
-	Read,
-	Write
-};
+bool GetAcceptExFnPtr(Socket &listensocket, const Log &log);
 
-struct OverlappedIO
-{
-	OverlappedIO(IOOperation ioop, std::weak_ptr<IOContext> ioctx)
-		: ioop(ioop),
-		ioctx(ioctx)
-	{
-		ZeroMemory(&overlapped, sizeof(overlapped));
-	}
-
-	std::shared_ptr<IOContext> GetIOContext() const
-	{
-		return ioctx.lock();
-	}
-
-	WSAOVERLAPPED overlapped;
-	IOOperation ioop;
-	std::weak_ptr<IOContext> ioctx;
-};
-
-struct IOContext
-{
-	IOContext()
-		: acceptsocket(),
-		acceptov(IOOperation::Accept, {}),
-		recvov(IOOperation::Read, {}),
-		sendov(IOOperation::Write, {}),
-		recvwsabuf(),
-		sendwsabuf(),
-		recving(false),
-		sending(false),
-		buffer(NET_MAX_BUFFER_SIZE),
-		subscriptions(),
-		outgoing(),
-		acceptbuffer((sizeof(SOCKADDR_STORAGE) + 16) * 2),
-		closing(false)
-	{
-		outgoing.reserve(100);	// this should be configurable based on the workload
-	}
-
-	~IOContext()
-	{
-		CancelOverlappedIO();
-	}
-
-	void Init(std::weak_ptr<IOContext> self)
-	{
-		acceptov.ioctx = self;
-		recvov.ioctx = self;
-		sendov.ioctx = self;
-	}
-
-	void CancelOverlappedIO()
-	{
-		CancelIoEx((HANDLE)acceptsocket.GetSocket(), &acceptov.overlapped);
-		CancelIoEx((HANDLE)acceptsocket.GetSocket(), &sendov.overlapped);
-		CancelIoEx((HANDLE)acceptsocket.GetSocket(), &recvov.overlapped);
-	}
-
-	Socket acceptsocket;
-
-	OverlappedIO acceptov;
-	OverlappedIO recvov;
-	OverlappedIO sendov;
-
-	WSABUF recvwsabuf;
-	WSABUF sendwsabuf;
-
-	std::atomic<bool> recving;
-	std::atomic<bool> sending;
-
-	std::vector<std::byte> buffer;
-	std::vector<std::byte> outgoing;
-	std::vector<std::byte> acceptbuffer;
-
-	std::unordered_set<std::string> subscriptions;
-
-	std::atomic<bool> closing;
-};
-
-void WorkerThread(const IOCompletionPort &iocp, const Socket &listensocket, const CmdSystem &cmd, const Log &log);
-
-bool GetAcceptExFnPtr(const Socket &listensocket, const Log &log);
-
-bool PostAccept(const Socket &listensocket, const Log &log);
-void PostRecv(std::shared_ptr<IOContext>, const Log &log);
-void PostSend(std::shared_ptr<IOContext>, const Log &log);
-
-void CloseClient(std::shared_ptr<IOContext>, const Log &log);
+bool PostAccept(Socket &listensocket, Log &log);
 
 LPFN_ACCEPTEX AcceptExFn;
 
@@ -430,7 +258,7 @@ BOOL WINAPI CtrlHandler(DWORD event)
 	return TRUE;
 }
 
-void WorkerThread(const IOCompletionPort &iocp, const Socket &listensocket, const CmdSystem &cmd, const Log &log)
+void WorkerThread(const IOCompletionPort &iocp, Socket &listensocket, const CmdSystem &cmd, Log &log)
 {
 	DWORD iosize = 0;
 	ULONG_PTR completionkey = 0;
@@ -457,29 +285,29 @@ void WorkerThread(const IOCompletionPort &iocp, const Socket &listensocket, cons
 			continue;
 		}
 
-		switch (perio->ioop)
+		switch (perio->GetIOOperation())
 		{
 			case IOOperation::Accept:
 			{
 				// after AcceptEx completed
 				SOCKET ls = listensocket.GetSocket();
-				int ret = setsockopt(ioctx->acceptsocket.GetSocket(), SOL_SOCKET, SO_UPDATE_ACCEPT_CONTEXT, reinterpret_cast<char *>(&ls), sizeof(ls));
+				int ret = setsockopt(ioctx->GetAcceptSocket().GetSocket(), SOL_SOCKET, SO_UPDATE_ACCEPT_CONTEXT, reinterpret_cast<char *>(&ls), sizeof(ls));
 				if (ret == SOCKET_ERROR)
 				{
 					log.Error("setsockopt(SO_UPDATE_ACCEPT_CONTEXT) failed to update accept socket: {}", GetErrorMessage(WSAGetLastError()));
-					CloseClient(ioctx, log);
+					ioctx->CloseClient();
 					return;
 				}
 
-				if (!iocp.UpdateIOCompletionPort(ioctx->acceptsocket, static_cast<ULONG_PTR>(ioctx->acceptsocket.GetSocket())))
+				if (!iocp.UpdateIOCompletionPort(ioctx->GetAcceptSocket(), static_cast<ULONG_PTR>(ioctx->GetAcceptSocket().GetSocket())))
 				{
 					log.Error("UpdateIOCompletionPort() failed to associate iocp handle to accept socket: {}", GetErrorMessage(GetLastError()));
-					CloseClient(ioctx, log);
+					ioctx->CloseClient();
 					return;
 				}
 
 				// start a read from a new client
-				PostRecv(ioctx, log);
+				ioctx->PostRecv();
 
 				// post another accept for a new client if the server isnt stopping
 				if (!endserver.load())
@@ -487,7 +315,7 @@ void WorkerThread(const IOCompletionPort &iocp, const Socket &listensocket, cons
 					if (!PostAccept(listensocket, log))
 					{
 						log.Error("PostAccept() failed to post an accept for a new client");
-						CloseClient(ioctx, log);
+						ioctx->CloseClient();
 						return;
 					}
 				}
@@ -497,33 +325,33 @@ void WorkerThread(const IOCompletionPort &iocp, const Socket &listensocket, cons
 
 			case IOOperation::Read:		// a write operation is complete, so post a read to get more data from the client
 			{
-				ioctx->recving = false;
+				ioctx->SetRecving(false);
 
 				if (iosize == 0)	// client closed
 				{
-					CloseClient(ioctx, log);
+					ioctx->CloseClient();
 					continue;
 				}
 
-				std::unique_ptr<Cmd> command = cmd.ParseCommand(std::span<std::byte>(ioctx->buffer.data(), iosize));
+				std::unique_ptr<Cmd> command = cmd.ParseCommand(std::span<std::byte>(ioctx->GetIncomingBuffer().data(), iosize));
 				if (command)
 					(*command)();
 
 				// post another read after sending
-				PostRecv(ioctx, log);
+				ioctx->PostRecv();
 
 				break;
 			}
 
 			case IOOperation::Write:	// a read operation is complete, so post a write back to the client now
-				ioctx->sending = false;
-				ioctx->outgoing.resize(0);
+				ioctx->SetSending(false);
+				ioctx->GetOutgoingBuffer().resize(0);
 				break;
 		}
 	}
 }
 
-bool GetAcceptExFnPtr(const Socket &listensocket, const Log &log)
+bool GetAcceptExFnPtr(Socket &listensocket, const Log &log)
 {
 	GUID acceptexguid = WSAID_ACCEPTEX;
 	DWORD bytes = 0;
@@ -549,90 +377,34 @@ bool GetAcceptExFnPtr(const Socket &listensocket, const Log &log)
 	return true;
 }
 
-bool PostAccept(const Socket &listensocket, const Log &log)
+bool PostAccept(Socket &listensocket, Log &log)
 {
 	std::scoped_lock lock(ioctxlistmtx);
 
-	std::shared_ptr<IOContext> ioctx = std::make_shared<IOContext>();
-	ioctx->Init(std::weak_ptr<IOContext>(ioctx));
+	std::list<std::shared_ptr<IOContext>>::iterator iter = ioctxlist.emplace(ioctxlist.end(), std::make_shared<IOContext>(log, ioctxlist, ioctxlistmtx));
 
-	ioctxlist.push_back(ioctx);
+	std::shared_ptr<IOContext> &ioctx = *iter;
+	ioctx->Initialize();
+	ioctx->SetListIter(iter);
 
 	DWORD recvbytes = 0;
 	int ret = AcceptExFn(
 		listensocket.GetSocket(),
-		ioctx->acceptsocket.GetSocket(),
-		ioctx->acceptbuffer.data(),
+		ioctx->GetAcceptSocket().GetSocket(),
+		ioctx->GetAcceptBuffer().data(),
 		0,
 		sizeof(SOCKADDR_STORAGE) + 16,
 		sizeof(SOCKADDR_STORAGE) + 16,
 		&recvbytes,
-		&ioctx->acceptov.overlapped
+		&ioctx->GetAcceptOverlapped().GetOverlapped()
 	);
 
 	if (ret == SOCKET_ERROR && (WSAGetLastError() != ERROR_IO_PENDING))
 	{
 		log.Error("AcceptEx() failed with error: {}", GetErrorMessage(WSAGetLastError()));
-		ioctxlist.remove(ioctx);
+		ioctx->CloseClient();
 		return false;
 	}
 
 	return true;
-}
-
-void PostRecv(std::shared_ptr<IOContext> ioctx, const Log &log)
-{
-	if (ioctx->recving)
-		return;
-
-	ZeroMemory(&ioctx->recvov.overlapped, sizeof(ioctx->recvov.overlapped));
-
-	ioctx->recvwsabuf.buf = reinterpret_cast<CHAR *>(ioctx->buffer.data());
-	ioctx->recvwsabuf.len = static_cast<ULONG>(ioctx->buffer.size());
-
-	DWORD flags = 0;
-	int ret = WSARecv(ioctx->acceptsocket.GetSocket(), &ioctx->recvwsabuf, 1, nullptr, &flags, &ioctx->recvov.overlapped, nullptr);
-	if (ret == SOCKET_ERROR && (WSAGetLastError() != ERROR_IO_PENDING))
-	{
-		log.Error("WSARecv() failed with error: {}", GetErrorMessage(WSAGetLastError()));
-		CloseClient(ioctx, log);
-		return;
-	}
-
-	ioctx->recving = true;
-}
-
-void PostSend(std::shared_ptr<IOContext> ioctx, const Log &log)
-{
-	if (ioctx->sending || ioctx->outgoing.empty())
-		return;
-
-	ZeroMemory(&ioctx->sendov.overlapped, sizeof(ioctx->sendov.overlapped));
-
-	ioctx->sendwsabuf.buf = reinterpret_cast<CHAR *>(ioctx->outgoing.data());
-	ioctx->sendwsabuf.len = static_cast<ULONG>(ioctx->outgoing.size());
-
-	int ret = WSASend(ioctx->acceptsocket.GetSocket(), &ioctx->sendwsabuf, 1, nullptr, 0, &ioctx->sendov.overlapped, nullptr);
-	if (ret == SOCKET_ERROR && (WSAGetLastError() != ERROR_IO_PENDING))
-	{
-		log.Error("WSASend() failed with error: {}", GetErrorMessage(WSAGetLastError()));
-		CloseClient(ioctx, log);
-		return;
-	}
-
-	ioctx->sending = true;
-}
-
-void CloseClient(std::shared_ptr<IOContext> ioctx, const Log &log)
-{
-	bool expected = false;
-	if (!ioctx->closing.compare_exchange_strong(expected, true, std::memory_order_acq_rel))
-		return;
-
-	log.Info("Closing client: {}", ioctx->acceptsocket.GetSocket());
-
-	{
-		std::scoped_lock lock(ioctxlistmtx);
-		ioctxlist.remove(ioctx);
-	}
 }
