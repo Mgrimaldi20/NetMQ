@@ -6,23 +6,6 @@
 #include "net/WinSockAPI.h"
 
 #include <iostream>
-#include <cstddef>
-#include <system_error>
-#include <stdexcept>
-#include <string>
-#include <string_view>
-#include <format>
-#include <thread>
-#include <mutex>
-#include <atomic>
-#include <condition_variable>
-#include <functional>
-#include <unordered_set>
-#include <list>
-#include <vector>
-#include <span>
-#include <any>
-#include <memory>
 
 #include "framework/Log.h"
 #include "framework/CmdSystem.h"
@@ -30,7 +13,8 @@
 #include "net/Socket.h"
 #include "io/IOContext.h"
 
-constexpr std::string_view NET_DEFAULT_PORT = "5001";
+#include "../SysCmd.h"
+
 constexpr unsigned int NET_DEFAULT_THREADS = 2;
 
 const std::string GetErrorMessage(const int errcode);
@@ -119,7 +103,7 @@ int main(int argc, char **argv)
 
 		Socket listensocket;
 
-		listensocket.Bind(NET_DEFAULT_PORT);
+		listensocket.Bind();
 		listensocket.Listen();
 
 		if (!iocp.UpdateIOCompletionPort(listensocket, 0))
@@ -157,7 +141,7 @@ int main(int argc, char **argv)
 			threads.emplace_back(WorkerThread, std::ref( iocp), std::ref(listensocket), std::ref(cmd), std::ref(log));
 
 		log.Info("Number of threads available: {}", numthreads);
-		log.Info("NetMQ server running on port: {}", NET_DEFAULT_PORT);
+		log.Info("NetMQ server running on port: {}", Socket::NET_DEFAULT_PORT);
 		log.Info("Press Ctrl-C to exit, or Ctrl-Break to restart...");
 
 		{
@@ -335,7 +319,13 @@ void WorkerThread(const IOCompletionPort &iocp, Socket &listensocket, const CmdS
 
 				std::unique_ptr<Cmd> command = cmd.ParseCommand(std::span<std::byte>(ioctx->GetIncomingBuffer().data(), iosize));
 				if (command)
-					(*command)();
+				{
+					if (SysCmd *syscommand = dynamic_cast<SysCmd *>(command.get()))
+						(*syscommand)(ioctx);
+
+					else
+						(*command)();
+				}
 
 				// post another read after sending
 				ioctx->PostRecv();

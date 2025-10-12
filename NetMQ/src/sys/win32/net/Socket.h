@@ -8,10 +8,12 @@
 class Socket
 {
 public:
+	static constexpr std::string_view NET_DEFAULT_PORT = "5001";
+
 	Socket();
 	~Socket();
 
-	void Bind(const std::string_view port) const;
+	void Bind(const std::string_view port = NET_DEFAULT_PORT) const;
 	void Listen() const;
 
 	void CancelIO(OverlappedIO &overlapped) noexcept;
