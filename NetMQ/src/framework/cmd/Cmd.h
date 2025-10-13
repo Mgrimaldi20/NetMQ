@@ -3,11 +3,43 @@
 
 #include <cstdint>
 #include <cstddef>
+#include <cstring>
+#include <concepts>
+#include <bit>
 #include <span>
+#include <tuple>
 
-namespace CmdUtil
+namespace CmdUtil	// functions implemented differently depending on host endianness at compile time for each type
 {
-	size_t ReadU32BigEndian(const std::span<const std::byte> &buffer, const size_t offset, uint32_t &out) noexcept;
+	template <typename T>
+	concept ValidUIntType = std::same_as<T, uint8_t>	// very cool stuff, concepts let you control instantiated typed
+		|| std::same_as<T, uint16_t>
+		|| std::same_as<T, uint32_t>
+		|| std::same_as<T, uint64_t>;
+
+	template<ValidUIntType T>
+	constexpr std::tuple<size_t, T> ReadUInt(const std::span<const std::byte> &buffer, const size_t offset)
+	{
+		static constexpr size_t OUT_SIZE = sizeof(T);
+
+		T out = 0;
+
+		if (buffer.size() < (offset + OUT_SIZE))
+			return std::make_tuple(0, out);
+
+		if constexpr (std::same_as<T, uint8_t>)
+			out = std::to_integer<uint8_t>(buffer[offset]);
+
+		else
+		{
+			std::memcpy(&out, buffer.data() + offset, OUT_SIZE);
+
+			if constexpr (std::endian::native == std::endian::little)
+				out = std::byteswap(out);
+		}
+
+		return std::make_tuple(OUT_SIZE, out);
+	}
 }
 
 class Cmd

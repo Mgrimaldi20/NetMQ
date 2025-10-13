@@ -41,10 +41,10 @@ std::unique_ptr<Cmd> CmdSystem::ParseCommand(const std::span<std::byte> incoming
 
 	offset += header.size();
 
-	uint32_t cmdnum = 0;
-	offset += CmdUtil::ReadU32BigEndian(incoming, offset, cmdnum);
-	const Cmd::Type type = static_cast<Cmd::Type>(cmdnum);
+	std::tuple<size_t, uint8_t> ret = CmdUtil::ReadUInt<uint8_t>(incoming, offset);
+	offset += std::get<0>(ret);
 
+	const Cmd::Type type = static_cast<Cmd::Type>(std::get<1>(ret));
 	const std::span<std::byte> params = incoming.subspan(offset, (incoming.size() - offset));
 
 	switch (type)

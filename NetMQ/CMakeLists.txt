@@ -13,11 +13,17 @@ endif()
 if(WIN32)
 	target_sources(NetMQ PRIVATE
 		"src/sys/win32/Main.cpp"
+		"src/sys/win32/io/IOOperation.h"
 		"src/sys/win32/net/WinSockAPI.h"
 		"src/sys/win32/net/WinSockAPI.cpp"
 		"src/sys/win32/io/IOContext.h"
 		"src/sys/win32/io/IOContext.cpp"
-	 "src/sys/win32/SysCmd.cpp" "src/sys/win32/net/Socket.h" "src/sys/win32/net/Socket.cpp" "src/sys/win32/io/OverlappedIO.h" "src/sys/win32/io/OverlappedIO.cpp" "src/sys/win32/io/IOOperation.h")
+		"src/sys/win32/net/Socket.h"
+		"src/sys/win32/net/Socket.cpp"
+		"src/sys/win32/io/OverlappedIO.h"
+		"src/sys/win32/io/OverlappedIO.cpp"
+		"src/sys/win32/SysCmd.cpp"
+	)
 elseif(LINUX OR APPLE)
 	target_sources(NetMQ PRIVATE
 		"src/sys/posix/Main.cpp"
@@ -26,18 +32,13 @@ endif()
 
 # Specify the common OS independent source files for the NetMQ project.
 target_sources(NetMQ PRIVATE
+	"src/sys/SysCmd.h"
 	"src/framework/Log.h"
 	"src/framework/Log.cpp"
 	"src/framework/CmdSystem.h"
 	"src/framework/CmdSystem.cpp"
 	"src/framework/cmd/Cmd.h"
 	"src/framework/cmd/Cmd.cpp"
-	
-	
-	
-	
-	
-	"src/sys/SysCmd.h"
 )
 
 include_directories(src)

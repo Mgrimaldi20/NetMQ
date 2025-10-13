@@ -18,7 +18,12 @@ mono_crash.*
 
 # Test files
 *.ps1
+*.sh
 *.bin
+
+# Test dirs
+[Tt]est/
+[Tt]ests/
 
 # Build results
 [Dd]ebug/
