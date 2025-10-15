@@ -6,13 +6,15 @@
 
 Log::Log()
 	: outstream(std::cout),
-	logname("COUT")
+	logname("COUT"),
+	logmtx()
 {
 	Info("Log opened: {}", logname);
 }
 
 Log::Log(const std::filesystem::path &fullpath)
-	: outstream(logfile)
+	: outstream(logfile),
+	logmtx()
 {
 	if (fullpath.empty())
 		throw std::runtime_error("The full path provided to the Logger is empty");
@@ -37,7 +39,7 @@ Log::~Log()
 	outstream.flush();
 }
 
-void Log::Write(Log::Type type, const std::string &msg) const
+void Log::Write(Log::Type type, const std::string &msg)
 {
 	auto GetTypeStr = [](Log::Type type)
 	{
@@ -49,6 +51,8 @@ void Log::Write(Log::Type type, const std::string &msg) const
 			default: return "UNKNOWN";
 		}
 	};
+
+	std::scoped_lock lock(logmtx);
 
 	std::format_to(
 		std::ostream_iterator<char>(outstream),

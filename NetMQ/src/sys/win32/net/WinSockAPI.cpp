@@ -7,6 +7,9 @@
 WinSockAPI::WinSockAPI(unsigned int major, unsigned int minor)
 	: wsadata()
 {
+	if (major < 2)
+		throw std::runtime_error("Cannot initialize with WinSock version 1, please use version 2.0 or higher");
+
 	int ret = WSAStartup(MAKEWORD(major, minor), &wsadata);
 	if (ret != 0)
 		throw std::runtime_error(std::format("WSAStartup() failed with error: {}", ret));

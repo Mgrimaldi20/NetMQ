@@ -23,7 +23,7 @@ if(WIN32)
 		"src/sys/win32/io/OverlappedIO.h"
 		"src/sys/win32/io/OverlappedIO.cpp"
 		"src/sys/win32/SysCmd.cpp"
-	)
+	 "src/sys/win32/io/IOCompletionPort.h" "src/sys/win32/io/IOCompletionPort.cpp")
 elseif(LINUX OR APPLE)
 	target_sources(NetMQ PRIVATE
 		"src/sys/posix/Main.cpp"

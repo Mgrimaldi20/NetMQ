@@ -23,18 +23,19 @@ struct std::hash<std::vector<std::byte>>	// C++ template instantiation magic
 };
 
 std::unordered_map<std::vector<std::byte>, std::vector<std::shared_ptr<IOContext>>> subscriptions;
-std::mutex subscriptionslock;
+std::mutex subsmtx;
 
 void ConnectSysCmd::operator()(std::shared_ptr<IOContext> ioctx) const
 {
-	(void)ioctx;
+	ioctx->SetConnected(true);
 }
 
 void PublishSysCmd::operator()(std::shared_ptr<IOContext> ioctx) const
 {
-	(void)ioctx;
+	if (!ioctx->GetConnected().load())
+		return;
 
-	std::scoped_lock lock(subscriptionslock);
+	std::scoped_lock lock(subsmtx);
 
 	std::vector<std::byte> topickey(topic.begin(), topic.end());
 	auto iter = subscriptions.find(topickey);
@@ -51,7 +52,10 @@ void PublishSysCmd::operator()(std::shared_ptr<IOContext> ioctx) const
 
 void SubscribeSysCmd::operator()(std::shared_ptr<IOContext> ioctx) const
 {
-	std::scoped_lock lock(subscriptionslock);
+	if (!ioctx->GetConnected().load())
+		return;
+
+	std::scoped_lock lock(subsmtx);
 
 	std::vector<std::byte> topickey(topic.begin(), topic.end());
 	auto iter = subscriptions.find(topickey);
@@ -74,7 +78,10 @@ void SubscribeSysCmd::operator()(std::shared_ptr<IOContext> ioctx) const
 
 void UnsubscribeSysCmd::operator()(std::shared_ptr<IOContext> ioctx) const
 {
-	std::scoped_lock lock(subscriptionslock);
+	if (!ioctx->GetConnected().load())
+		return;
+
+	std::scoped_lock lock(subsmtx);
 
 	std::vector<std::byte> topickey(topic.begin(), topic.end());
 	auto iter = subscriptions.find(topickey);
@@ -91,7 +98,10 @@ void UnsubscribeSysCmd::operator()(std::shared_ptr<IOContext> ioctx) const
 
 void DisconnectSysCmd::operator()(std::shared_ptr<IOContext> ioctx) const
 {
-	std::scoped_lock lock(subscriptionslock);
+	if (!ioctx->GetConnected().load())
+		return;
+
+	std::scoped_lock lock(subsmtx);
 
 	for (auto &[topic, sublist] : subscriptions)
 		sublist.erase(std::remove(sublist.begin(), sublist.end(), ioctx), sublist.end());

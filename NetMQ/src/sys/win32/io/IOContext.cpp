@@ -9,6 +9,7 @@ IOContext::IOContext(Log &log, std::list<std::shared_ptr<IOContext>> &ioctxlist,
 	sendov(IOOperation::Write, {}),
 	recvwsabuf(),
 	sendwsabuf(),
+	connected(false),
 	recving(false),
 	sending(false),
 	buffer(NET_MAX_BUFFER_SIZE),
@@ -43,7 +44,7 @@ void IOContext::SetListIter(std::list<std::shared_ptr<IOContext>>::iterator list
 
 void IOContext::PostRecv()
 {
-	if (recving)
+	if (recving.load())
 		return;
 
 	recvov.ClearOverlapped();
@@ -65,7 +66,7 @@ void IOContext::PostRecv()
 
 void IOContext::PostSend()
 {
-	if (sending || outgoing.empty())
+	if (sending.load() || outgoing.empty())
 		return;
 
 	sendov.ClearOverlapped();
@@ -113,6 +114,16 @@ Socket &IOContext::GetAcceptSocket() noexcept
 OverlappedIO &IOContext::GetAcceptOverlapped() noexcept
 {
 	return acceptov;
+}
+
+std::atomic<bool> &IOContext::GetConnected() noexcept
+{
+	return connected;
+}
+
+void IOContext::SetConnected(bool val) noexcept
+{
+	connected = val;
 }
 
 std::atomic<bool> &IOContext::GetRecving() noexcept

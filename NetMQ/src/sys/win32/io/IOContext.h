@@ -35,6 +35,9 @@ public:
 	Socket &GetAcceptSocket() noexcept;
 	OverlappedIO &GetAcceptOverlapped() noexcept;
 
+	std::atomic<bool> &GetConnected() noexcept;
+	void SetConnected(bool val) noexcept;
+
 	std::atomic<bool> &GetRecving() noexcept;
 	void SetRecving(bool val) noexcept;
 
@@ -57,6 +60,7 @@ private:
 	WSABUF recvwsabuf;
 	WSABUF sendwsabuf;
 
+	std::atomic<bool> connected;
 	std::atomic<bool> recving;
 	std::atomic<bool> sending;
 

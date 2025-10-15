@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <string>
 #include <format>
+#include <mutex>
 
 /*
 * Class: Log
@@ -25,19 +26,19 @@ public:
 	~Log();
 
 	template <typename ...Args>
-	inline void Info(std::format_string<Args...> fmt, Args &&...args) const
+	inline void Info(std::format_string<Args...> fmt, Args &&...args)
 	{
 		Write(Log::Type::Info, std::format(fmt, std::forward<Args>(args)...));
 	}
 
 	template <typename ...Args>
-	inline void Warn(std::format_string<Args...> fmt, Args &&...args) const
+	inline void Warn(std::format_string<Args...> fmt, Args &&...args)
 	{
 		Write(Log::Type::Warn, std::format(fmt, std::forward<Args>(args)...));
 	}
 
 	template <typename ...Args>
-	inline void Error(std::format_string<Args...> fmt, Args &&...args) const
+	inline void Error(std::format_string<Args...> fmt, Args &&...args)
 	{
 		Write(Log::Type::Error, std::format(fmt, std::forward<Args>(args)...));
 	}
@@ -50,11 +51,13 @@ private:
 		Error
 	};
 
-	void Write(Log::Type type, const std::string &msg) const;
+	void Write(Log::Type type, const std::string &msg);
 
 	std::ofstream logfile;
 	std::ostream &outstream;
 	std::string logname;
+
+	std::mutex logmtx;
 };
 
 #endif

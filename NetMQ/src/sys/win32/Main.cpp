@@ -12,59 +12,19 @@
 
 #include "net/Socket.h"
 #include "io/IOContext.h"
+#include "io/IOCompletionPort.h"
 
 #include "../SysCmd.h"
 
 constexpr unsigned int NET_DEFAULT_THREADS = 2;
+constexpr unsigned int NET_DEFAULT_PRE_POST_ACCEPTS = 10;
 
 const std::string GetErrorMessage(const int errcode);
 bool ValidateOptions(int argc, char **argv);
 BOOL WINAPI CtrlHandler(DWORD event);
 
-struct IOCompletionPort
-{
-	IOCompletionPort()
-		: iocp(INVALID_HANDLE_VALUE)
-	{
-		iocp = CreateIoCompletionPort(INVALID_HANDLE_VALUE, nullptr, 0, 0);
-		if (!iocp)
-			throw std::runtime_error(std::format("CreateIoCompletionPort() failed with error (initial): {}", GetErrorMessage(GetLastError())));
-	}
-
-	~IOCompletionPort()
-	{
-		if (iocp && iocp != INVALID_HANDLE_VALUE)
-		{
-			CloseHandle(iocp);
-			iocp = INVALID_HANDLE_VALUE;
-		}
-	}
-
-	bool UpdateIOCompletionPort(Socket &socket, ULONG_PTR completionkey) const
-	{
-		if (!CreateIoCompletionPort((HANDLE)socket.GetSocket(), iocp, completionkey, 0))
-			return false;
-
-		return true;
-	}
-
-	bool GetQueuedCompletionStatus(unsigned long *iosize, unsigned long long *completionkey, WSAOVERLAPPED **wsaoverlapped) const
-	{
-		return ::GetQueuedCompletionStatus(iocp, iosize, completionkey, wsaoverlapped, INFINITE);
-	}
-
-	bool PostQueuedQuitStatus()
-	{
-		return PostQueuedCompletionStatus(iocp, 0, 0, nullptr);
-	}
-
-	HANDLE iocp;
-};
-
 void WorkerThread(const IOCompletionPort &iocp, Socket &listensocket, const CmdSystem &cmd, Log &log);
-
-bool GetAcceptExFnPtr(Socket &listensocket, const Log &log);
-
+bool GetAcceptExFnPtr(Socket &listensocket, Log &log);
 bool PostAccept(Socket &listensocket, Log &log);
 
 LPFN_ACCEPTEX AcceptExFn;
@@ -100,7 +60,6 @@ int main(int argc, char **argv)
 		restartserver = false;
 
 		IOCompletionPort iocp;
-
 		Socket listensocket;
 
 		listensocket.Bind();
@@ -120,11 +79,14 @@ int main(int argc, char **argv)
 			return 1;
 		}
 
-		if (!PostAccept(listensocket, log))
+		for (unsigned int i=0; i<NET_DEFAULT_PRE_POST_ACCEPTS; i++)
 		{
-			log.Error("PostAccept() failed (initial)");
-			SetConsoleCtrlHandler(CtrlHandler, FALSE);
-			return 1;
+			if (!PostAccept(listensocket, log))
+			{
+				log.Error("PostAccept() failed (initial)");
+				SetConsoleCtrlHandler(CtrlHandler, FALSE);
+				return 1;
+			}
 		}
 
 		unsigned int numthreads = std::thread::hardware_concurrency() * 2;
@@ -138,7 +100,7 @@ int main(int argc, char **argv)
 
 		std::vector<std::thread> threads;
 		for (unsigned int i=0; i<numthreads; i++)
-			threads.emplace_back(WorkerThread, std::ref( iocp), std::ref(listensocket), std::ref(cmd), std::ref(log));
+			threads.emplace_back(WorkerThread, std::ref(iocp), std::ref(listensocket), std::ref(cmd), std::ref(log));
 
 		log.Info("Number of threads available: {}", numthreads);
 		log.Info("NetMQ server running on port: {}", Socket::NET_DEFAULT_PORT);
@@ -341,7 +303,7 @@ void WorkerThread(const IOCompletionPort &iocp, Socket &listensocket, const CmdS
 	}
 }
 
-bool GetAcceptExFnPtr(Socket &listensocket, const Log &log)
+bool GetAcceptExFnPtr(Socket &listensocket, Log &log)
 {
 	GUID acceptexguid = WSAID_ACCEPTEX;
 	DWORD bytes = 0;
