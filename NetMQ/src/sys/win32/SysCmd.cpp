@@ -1,5 +1,3 @@
-#include "../SysCmd.h"
-
 #include <cstddef>
 #include <mutex>
 #include <memory>
@@ -7,6 +5,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "../Cmd.h"
 #include "io/IOContext.h"
 
 template <>
@@ -25,12 +24,15 @@ struct std::hash<std::vector<std::byte>>	// C++ template instantiation magic
 std::unordered_map<std::vector<std::byte>, std::vector<std::shared_ptr<IOContext>>> subscriptions;
 std::mutex subsmtx;
 
-void ConnectSysCmd::operator()(std::shared_ptr<IOContext> ioctx) const
+void ConnectCmd::operator()() const
 {
+	if (ioctx->GetConnected().load())
+		return;
+
 	ioctx->SetConnected(true);
 }
 
-void PublishSysCmd::operator()(std::shared_ptr<IOContext> ioctx) const
+void PublishCmd::operator()() const
 {
 	if (!ioctx->GetConnected().load())
 		return;
@@ -50,7 +52,7 @@ void PublishSysCmd::operator()(std::shared_ptr<IOContext> ioctx) const
 	}
 }
 
-void SubscribeSysCmd::operator()(std::shared_ptr<IOContext> ioctx) const
+void SubscribeCmd::operator()() const
 {
 	if (!ioctx->GetConnected().load())
 		return;
@@ -76,7 +78,7 @@ void SubscribeSysCmd::operator()(std::shared_ptr<IOContext> ioctx) const
 	}
 }
 
-void UnsubscribeSysCmd::operator()(std::shared_ptr<IOContext> ioctx) const
+void UnsubscribeCmd::operator()() const
 {
 	if (!ioctx->GetConnected().load())
 		return;
@@ -96,7 +98,7 @@ void UnsubscribeSysCmd::operator()(std::shared_ptr<IOContext> ioctx) const
 	}
 }
 
-void DisconnectSysCmd::operator()(std::shared_ptr<IOContext> ioctx) const
+void DisconnectCmd::operator()() const
 {
 	if (!ioctx->GetConnected().load())
 		return;

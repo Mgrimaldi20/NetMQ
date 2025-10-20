@@ -1,6 +1,7 @@
 #ifndef _NETMQ_CMD_H_
 #define _NETMQ_CMD_H_
 
+#include <memory>
 #include <cstdint>
 #include <cstddef>
 #include <cstring>
@@ -8,6 +9,8 @@
 #include <bit>
 #include <span>
 #include <tuple>
+
+class IOContext;
 
 namespace CmdUtil	// functions implemented differently depending on host endianness at compile time for each type
 {
@@ -54,61 +57,71 @@ public:
 		Disconnect
 	};
 
+	Cmd(std::shared_ptr<IOContext> ioctx) noexcept
+		: ioctx(ioctx)
+	{}
+
 	virtual ~Cmd() = default;
 
 	virtual void operator()() const = 0;
+
+protected:
+	std::shared_ptr<IOContext> ioctx;
 };
 
 class ConnectCmd : public Cmd
 {
-protected:
-	ConnectCmd(const std::span<std::byte> &params) noexcept;
+public:
+	ConnectCmd(std::shared_ptr<IOContext> ioctx, const std::span<std::byte> &params);
 	virtual ~ConnectCmd() = default;
 
-	void operator()() const override final {}
+	void operator()() const override final;
 };
 
 class PublishCmd : public Cmd
 {
-protected:
-	PublishCmd(const std::span<std::byte> &params) noexcept;
+public:
+	PublishCmd(std::shared_ptr<IOContext> ioctx, const std::span<std::byte> &params) noexcept;
 	virtual ~PublishCmd() = default;
 
-	void operator()() const override final {}
+	void operator()() const override final;
 
+private:
 	std::span<std::byte> topic;
 	std::span<std::byte> msg;
 };
 
 class SubscribeCmd : public Cmd
 {
-protected:
-	SubscribeCmd(const std::span<std::byte> &params) noexcept;
+public:
+	SubscribeCmd(std::shared_ptr<IOContext> ioctx, const std::span<std::byte> &params) noexcept;
 	virtual ~SubscribeCmd() = default;
 
-	void operator()() const override final {}
+	void operator()() const override final;
 
+private:
 	std::span<std::byte> topic;
 };
 
 class UnsubscribeCmd : public Cmd
 {
-protected:
-	UnsubscribeCmd(const std::span<std::byte> &params) noexcept;
+public:
+	UnsubscribeCmd(std::shared_ptr<IOContext> ioctx, const std::span<std::byte> &params) noexcept;
 	virtual ~UnsubscribeCmd() = default;
 
-	void operator()() const override final {}
+	void operator()() const override final;
 
+private:
 	std::span<std::byte> topic;
 };
 
 class DisconnectCmd : public Cmd
 {
-protected:
-	DisconnectCmd(const std::span<std::byte> &params) noexcept;
+public:
+	DisconnectCmd(std::shared_ptr<IOContext> ioctx, const std::span<std::byte> &params) noexcept;
 	virtual ~DisconnectCmd() = default;
 
-	void operator()() const override final {}
+	void operator()() const override final;
 };
 
 #endif

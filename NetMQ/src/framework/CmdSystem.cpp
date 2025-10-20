@@ -1,21 +1,4 @@
-#include <algorithm>
-#include <array>
-
-#include "cmd/Cmd.h"
 #include "CmdSystem.h"
-
-#include "sys/SysCmd.h"
-
-constexpr size_t CMD_HEADER_SIZE = 5;
-
-constexpr std::array<std::byte, CMD_HEADER_SIZE> CMD_HEADER =
-{
-	std::byte('N'),
-	std::byte('E'),
-	std::byte('T'),
-	std::byte('M'),
-	std::byte('Q')
-};
 
 CmdSystem::CmdSystem(Log &log)
 	: log(log)
@@ -28,41 +11,44 @@ CmdSystem::~CmdSystem()
 	log.Info("Shutting down the command system");
 }
 
-std::unique_ptr<Cmd> CmdSystem::ParseCommand(const std::span<std::byte> incoming) const
+std::unique_ptr<Cmd> CmdSystem::ParseCommand(std::shared_ptr<IOContext> ioctx, const std::span<std::byte> incoming) const
 {
 	size_t offset = 0;
 
-	std::span<std::byte, CMD_HEADER_SIZE> header(incoming.subspan(offset, CMD_HEADER_SIZE));
-	if (!std::equal(header.begin(), header.end(), CMD_HEADER.begin()))
-	{
-		log.Warn("Header does not match the expected value");
-		return nullptr;
-	}
+	std::tuple<size_t, uint8_t> cmd = CmdUtil::ReadUInt<uint8_t>(incoming, offset);
+	offset += std::get<0>(cmd);
 
-	offset += header.size();
-
-	std::tuple<size_t, uint8_t> ret = CmdUtil::ReadUInt<uint8_t>(incoming, offset);
-	offset += std::get<0>(ret);
-
-	const Cmd::Type type = static_cast<Cmd::Type>(std::get<1>(ret));
+	const Cmd::Type type = static_cast<Cmd::Type>(std::get<1>(cmd));
 	const std::span<std::byte> params = incoming.subspan(offset, (incoming.size() - offset));
 
 	switch (type)
 	{
 		case Cmd::Type::Connect:
-			return std::make_unique<ConnectSysCmd>(params);
+		{
+			try
+			{
+				return std::make_unique<ConnectCmd>(ioctx, params);
+			}
+
+			catch (const std::exception &e)
+			{
+				log.Error("Could not create the Connect command: {}", e.what());
+			}
+
+			return nullptr;
+		}
 
 		case Cmd::Type::Publish:
-			return std::make_unique<PublishSysCmd>(params);
+			return std::make_unique<PublishCmd>(ioctx, params);
 
 		case Cmd::Type::Subscribe:
-			return std::make_unique<SubscribeSysCmd>(params);
+			return std::make_unique<SubscribeCmd>(ioctx, params);
 
 		case Cmd::Type::Unsubscribe:
-			return std::make_unique<UnsubscribeSysCmd>(params);
+			return std::make_unique<UnsubscribeCmd>(ioctx, params);
 
 		case Cmd::Type::Disconnect:
-			return std::make_unique<DisconnectSysCmd>(params);
+			return std::make_unique<DisconnectCmd>(ioctx, params);
 
 		default:
 			log.Warn("Unknown command type parsed");

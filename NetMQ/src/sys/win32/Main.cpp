@@ -14,7 +14,7 @@
 #include "io/IOContext.h"
 #include "io/IOCompletionPort.h"
 
-#include "../SysCmd.h"
+#include "../Cmd.h"
 
 constexpr unsigned int NET_DEFAULT_THREADS = 2;
 constexpr unsigned int NET_DEFAULT_PRE_POST_ACCEPTS = 10;
@@ -279,15 +279,9 @@ void WorkerThread(const IOCompletionPort &iocp, Socket &listensocket, const CmdS
 					continue;
 				}
 
-				std::unique_ptr<Cmd> command = cmd.ParseCommand(std::span<std::byte>(ioctx->GetIncomingBuffer().data(), iosize));
+				std::unique_ptr<Cmd> command = cmd.ParseCommand(ioctx, std::span<std::byte>(ioctx->GetIncomingBuffer().data(), iosize));
 				if (command)
-				{
-					if (SysCmd *syscommand = dynamic_cast<SysCmd *>(command.get()))
-						(*syscommand)(ioctx);
-
-					else
-						(*command)();
-				}
+					(*command)();
 
 				// post another read after sending
 				ioctx->PostRecv();
