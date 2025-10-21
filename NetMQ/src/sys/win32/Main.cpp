@@ -36,6 +36,8 @@ std::atomic<bool> endserver;
 std::atomic<bool> restartserver;
 std::condition_variable cleanupcv;
 
+static std::string_view serverport = Socket::NET_DEFAULT_PORT;
+
 int main(int argc, char **argv)
 {
 	if (!ValidateOptions(argc, argv))
@@ -62,7 +64,7 @@ int main(int argc, char **argv)
 		IOCompletionPort iocp;
 		Socket listensocket;
 
-		listensocket.Bind();
+		listensocket.Bind(serverport);
 		listensocket.Listen();
 
 		if (!iocp.UpdateIOCompletionPort(listensocket, 0))
@@ -94,8 +96,8 @@ int main(int argc, char **argv)
 
 		if (numthreads == NET_DEFAULT_THREADS)
 		{
-			log.Info("The number of threads avaliable is equal to the default number [{}]", NET_DEFAULT_THREADS);
-			log.Info("If this is not correct, you may wish to restart NetMQ as the correct number of system threads have not been detected");
+			log.Warn("The number of threads avaliable is equal to the default number [{}]", NET_DEFAULT_THREADS);
+			log.Warn("If this is not correct, you may wish to restart NetMQ as the correct number of system threads have not been detected");
 		}
 
 		std::vector<std::thread> threads;
@@ -103,7 +105,7 @@ int main(int argc, char **argv)
 			threads.emplace_back(WorkerThread, std::ref(iocp), std::ref(listensocket), std::ref(cmd), std::ref(log));
 
 		log.Info("Number of threads available: {}", numthreads);
-		log.Info("NetMQ server running on port: {}", Socket::NET_DEFAULT_PORT);
+		log.Info("NetMQ server running on port: {}", serverport);
 		log.Info("Press Ctrl-C to exit, or Ctrl-Break to restart...");
 
 		{
@@ -161,7 +163,14 @@ bool ValidateOptions(int argc, char **argv)
 		switch (argv[i][1])
 		{
 			case 'p':
+			{
+				std::string_view arg(argv[i]);
+
+				if (arg.length() > 3 && arg[2] == ':')
+					serverport = arg.substr(3);
+
 				break;
+			}
 
 			case '?':
 				std::cout << std::endl << "Usage:" << std::endl
