@@ -21,7 +21,7 @@ namespace CmdUtil	// functions implemented differently depending on host endiann
 		|| std::same_as<T, uint64_t>;
 
 	template<ValidUIntType T>
-	constexpr std::tuple<size_t, T> ReadUInt(const std::span<const std::byte> &buffer, const size_t offset)
+	constexpr std::tuple<size_t, T> ReadUInt(std::span<const std::byte> buffer, const size_t offset)
 	{
 		static constexpr size_t OUT_SIZE = sizeof(T);
 
@@ -72,16 +72,19 @@ protected:
 class ConnectCmd : public Cmd
 {
 public:
-	ConnectCmd(std::shared_ptr<IOContext> ioctx, const std::span<std::byte> &params);
+	ConnectCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params);
 	virtual ~ConnectCmd() = default;
 
 	void operator()() const override final;
+
+private:
+	std::span<std::byte> clientid;
 };
 
 class PublishCmd : public Cmd
 {
 public:
-	PublishCmd(std::shared_ptr<IOContext> ioctx, const std::span<std::byte> &params) noexcept;
+	PublishCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params);
 	virtual ~PublishCmd() = default;
 
 	void operator()() const override final;
@@ -94,7 +97,7 @@ private:
 class SubscribeCmd : public Cmd
 {
 public:
-	SubscribeCmd(std::shared_ptr<IOContext> ioctx, const std::span<std::byte> &params) noexcept;
+	SubscribeCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params);
 	virtual ~SubscribeCmd() = default;
 
 	void operator()() const override final;
@@ -106,7 +109,7 @@ private:
 class UnsubscribeCmd : public Cmd
 {
 public:
-	UnsubscribeCmd(std::shared_ptr<IOContext> ioctx, const std::span<std::byte> &params) noexcept;
+	UnsubscribeCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params);
 	virtual ~UnsubscribeCmd() = default;
 
 	void operator()() const override final;
@@ -118,7 +121,7 @@ private:
 class DisconnectCmd : public Cmd
 {
 public:
-	DisconnectCmd(std::shared_ptr<IOContext> ioctx, const std::span<std::byte> &params) noexcept;
+	DisconnectCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params);
 	virtual ~DisconnectCmd() = default;
 
 	void operator()() const override final;

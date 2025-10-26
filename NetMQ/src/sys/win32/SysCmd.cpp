@@ -45,10 +45,7 @@ void PublishCmd::operator()() const
 	if (iter != subscriptions.end())
 	{
 		for (auto subscriber : iter->second)
-		{
-			subscriber->GetOutgoingBuffer().assign(msg.begin(), msg.end());
-			subscriber->PostSend();
-		}
+			subscriber->PostSend(msg);
 	}
 }
 

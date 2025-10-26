@@ -1,5 +1,7 @@
 #include "IOContext.h"
 
+#include "../../Cmd.h"
+
 const std::string GetErrorMessage(const int errcode);
 
 IOContext::IOContext(Log &log, std::list<std::shared_ptr<IOContext>> &ioctxlist, std::mutex &ioctxlistmtx)
@@ -64,10 +66,12 @@ void IOContext::PostRecv()
 	recving = true;
 }
 
-void IOContext::PostSend()
+void IOContext::PostSend(std::span<std::byte> data)
 {
 	if (sending.load() || outgoing.empty())
 		return;
+
+	outgoing.assign_range(data);
 
 	sendov.ClearOverlapped();
 

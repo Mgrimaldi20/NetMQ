@@ -5,6 +5,7 @@
 #include <mutex>
 #include <atomic>
 #include <memory>
+#include <span>
 #include <vector>
 #include <list>
 
@@ -27,7 +28,7 @@ public:
 	void SetListIter(std::list<std::shared_ptr<IOContext>>::iterator listiter) noexcept;
 
 	void PostRecv();
-	void PostSend();
+	void PostSend(std::span<std::byte> data);
 	void CloseClient();
 
 	void CancelOverlappedIO() noexcept;

@@ -15,7 +15,7 @@ public:
 	CmdSystem(Log &log);
 	~CmdSystem();
 
-	std::unique_ptr<Cmd> ParseCommand(std::shared_ptr<IOContext> ioctx, const std::span<std::byte> incoming) const;
+	std::unique_ptr<Cmd> ParseCommand(std::shared_ptr<IOContext> ioctx, std::span<std::byte> incoming) const;
 
 private:
 	Log &log;

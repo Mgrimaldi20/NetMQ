@@ -111,7 +111,7 @@ int main(int argc, char **argv)
 		{
 			std::mutex cvmtx;
 			std::unique_lock lock(cvmtx);
-			cleanupcv.wait(lock, [] { return endserver.load(); });
+			cleanupcv.wait(lock, []() { return endserver.load(); });
 		}
 
 		endserver = true;
@@ -172,11 +172,15 @@ bool ValidateOptions(int argc, char **argv)
 				break;
 			}
 
+			case 'a':
+				break;
+
 			case '?':
 				std::cout << std::endl << "Usage:" << std::endl
-					<< "NetMQ [-p:<port>] [-?]" << std::endl
+					<< "NetMQ [-p:<port>] [-a] [-?]" << std::endl
 					<< "--------------------------------------------------" << std::endl
 					<< "-p:<port>    Specify the port number of the server" << std::endl
+					<< "-a           Enable auth mode, a token is required" << std::endl
 					<< "-?           Prints out this help message and exit" << std::endl;
 
 				return false;
@@ -288,9 +292,17 @@ void WorkerThread(const IOCompletionPort &iocp, Socket &listensocket, const CmdS
 					continue;
 				}
 
-				std::unique_ptr<Cmd> command = cmd.ParseCommand(ioctx, std::span<std::byte>(ioctx->GetIncomingBuffer().data(), iosize));
-				if (command)
-					(*command)();
+				try
+				{
+					std::unique_ptr<Cmd> command = cmd.ParseCommand(ioctx, std::span<std::byte>(ioctx->GetIncomingBuffer().data(), iosize));
+					if (command)
+						(*command)();
+				}
+
+				catch (const std::exception &e)
+				{
+					log.Warn("Could not create command: {}", e.what());
+				}
 
 				// post another read after sending
 				ioctx->PostRecv();
@@ -300,7 +312,6 @@ void WorkerThread(const IOCompletionPort &iocp, Socket &listensocket, const CmdS
 
 			case IOOperation::Write:	// a read operation is complete, so post a write back to the client now
 				ioctx->SetSending(false);
-				ioctx->GetOutgoingBuffer().resize(0);
 				break;
 		}
 	}

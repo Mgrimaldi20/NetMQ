@@ -6,12 +6,10 @@
 
 static constexpr uint8_t NETMQ_VERSION = 1;
 
-ConnectCmd::ConnectCmd(std::shared_ptr<IOContext> ioctx, const std::span<std::byte> &params)
+ConnectCmd::ConnectCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params)
 	: Cmd(ioctx)
 {
-	static constexpr size_t CMD_HEADER_SIZE = 5;
-
-	static constexpr std::array<std::byte, CMD_HEADER_SIZE> CMD_HEADER =
+	static constexpr std::array<std::byte, 5> HEADER_BYTES =
 	{
 		std::byte('N'),
 		std::byte('E'),
@@ -22,8 +20,8 @@ ConnectCmd::ConnectCmd(std::shared_ptr<IOContext> ioctx, const std::span<std::by
 
 	size_t offset = 0;
 
-	std::span<std::byte, CMD_HEADER_SIZE> header(params.subspan(offset, CMD_HEADER_SIZE));
-	if (!std::equal(header.begin(), header.end(), CMD_HEADER.begin()))
+	std::span<std::byte, HEADER_BYTES.size()> header(params.subspan(offset, HEADER_BYTES.size()));
+	if (!std::equal(header.begin(), header.end(), HEADER_BYTES.begin()))
 		throw std::runtime_error("Header does not match the expected value");
 
 	offset += header.size();
@@ -33,9 +31,14 @@ ConnectCmd::ConnectCmd(std::shared_ptr<IOContext> ioctx, const std::span<std::by
 		throw std::runtime_error(std::format("Version parsed ({}) does not equal the implemented NetMQ protocol version of the server ({})", std::get<1>(version), NETMQ_VERSION));
 
 	offset += std::get<0>(version);
+
+	std::tuple<size_t, uint8_t> packetsize = CmdUtil::ReadUInt<uint8_t>(params, offset);
+	offset += std::get<0>(packetsize);
+	uint8_t clientidlen = std::get<1>(packetsize);
+	clientid = params.subspan(offset, clientidlen);
 }
 
-PublishCmd::PublishCmd(std::shared_ptr<IOContext> ioctx, const std::span<std::byte> &params) noexcept
+PublishCmd::PublishCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params)
 	: Cmd(ioctx)
 {
 	size_t offset = 0;
@@ -52,7 +55,7 @@ PublishCmd::PublishCmd(std::shared_ptr<IOContext> ioctx, const std::span<std::by
 	msg = params.subspan(offset, msglen);
 }
 
-SubscribeCmd::SubscribeCmd(std::shared_ptr<IOContext> ioctx, const std::span<std::byte> &params) noexcept
+SubscribeCmd::SubscribeCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params)
 	: Cmd(ioctx)
 {
 	size_t offset = 0;
@@ -63,7 +66,7 @@ SubscribeCmd::SubscribeCmd(std::shared_ptr<IOContext> ioctx, const std::span<std
 	topic = params.subspan(offset, topiclen);
 }
 
-UnsubscribeCmd::UnsubscribeCmd(std::shared_ptr<IOContext> ioctx, const std::span<std::byte> &params) noexcept
+UnsubscribeCmd::UnsubscribeCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params)
 	: Cmd(ioctx)
 {
 	size_t offset = 0;
@@ -74,7 +77,7 @@ UnsubscribeCmd::UnsubscribeCmd(std::shared_ptr<IOContext> ioctx, const std::span
 	topic = params.subspan(offset, topiclen);
 }
 
-DisconnectCmd::DisconnectCmd(std::shared_ptr<IOContext> ioctx, const std::span<std::byte> &params) noexcept
+DisconnectCmd::DisconnectCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params)
 	: Cmd(ioctx)
 {
 	(void)params;

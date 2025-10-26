@@ -33,7 +33,7 @@ Socket::~Socket()
 	}
 }
 
-void Socket::Bind(const std::string_view port) const
+void Socket::Bind(std::string_view port) const
 {
 	struct AddrInfo
 	{

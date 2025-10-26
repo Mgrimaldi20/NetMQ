@@ -13,7 +13,7 @@ public:
 	Socket();
 	~Socket();
 
-	void Bind(const std::string_view port) const;
+	void Bind(std::string_view port) const;
 	void Listen() const;
 
 	void CancelIO(OverlappedIO &overlapped) noexcept;
