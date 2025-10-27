@@ -77,6 +77,17 @@ void Socket::Listen() const
 		throw std::runtime_error(std::format("listen() failed with error: {}", GetErrorMessage(WSAGetLastError())));
 }
 
+int Socket::Send(WSABUF &wsabuf, OverlappedIO &overlapped)
+{
+	return WSASend(socket, &wsabuf, 1, nullptr, 0, &overlapped.GetOverlapped(), nullptr);
+}
+
+int Socket::Recv(WSABUF &wsabuf, OverlappedIO &overlapped)
+{
+	DWORD flags = 0;
+	return WSARecv(socket, &wsabuf, 1, nullptr, &flags, &overlapped.GetOverlapped(), nullptr);
+}
+
 void Socket::CancelIO(OverlappedIO &overlapped) noexcept
 {
 	CancelIoEx((HANDLE)socket, &overlapped.GetOverlapped());

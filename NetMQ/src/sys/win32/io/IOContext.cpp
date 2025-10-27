@@ -54,8 +54,7 @@ void IOContext::PostRecv()
 	recvwsabuf.buf = reinterpret_cast<CHAR *>(buffer.data());
 	recvwsabuf.len = static_cast<ULONG>(buffer.size());
 
-	DWORD flags = 0;
-	int ret = WSARecv(acceptsocket.GetSocket(), &recvwsabuf, 1, nullptr, &flags, &recvov.GetOverlapped(), nullptr);
+	int ret = acceptsocket.Recv(recvwsabuf, recvov);
 	if (ret == SOCKET_ERROR && (WSAGetLastError() != ERROR_IO_PENDING))
 	{
 		log.Error("WSARecv() failed with error: {}", GetErrorMessage(WSAGetLastError()));
@@ -78,7 +77,7 @@ void IOContext::PostSend(std::span<std::byte> data)
 	sendwsabuf.buf = reinterpret_cast<CHAR *>(outgoing.data());
 	sendwsabuf.len = static_cast<ULONG>(outgoing.size());
 
-	int ret = WSASend(acceptsocket.GetSocket(), &sendwsabuf, 1, nullptr, 0, &sendov.GetOverlapped(), nullptr);
+	int ret = acceptsocket.Send(sendwsabuf, sendov);
 	if (ret == SOCKET_ERROR && (WSAGetLastError() != ERROR_IO_PENDING))
 	{
 		log.Error("WSASend() failed with error: {}", GetErrorMessage(WSAGetLastError()));
@@ -153,11 +152,6 @@ void IOContext::SetSending(bool val) noexcept
 std::vector<std::byte> &IOContext::GetIncomingBuffer() noexcept
 {
 	return buffer;
-}
-
-std::vector<std::byte> &IOContext::GetOutgoingBuffer() noexcept
-{
-	return outgoing;
 }
 
 std::vector<std::byte> &IOContext::GetAcceptBuffer() noexcept

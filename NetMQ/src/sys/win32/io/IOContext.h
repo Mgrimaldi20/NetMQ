@@ -46,7 +46,6 @@ public:
 	void SetSending(bool val) noexcept;
 
 	std::vector<std::byte> &GetIncomingBuffer() noexcept;
-	std::vector<std::byte> &GetOutgoingBuffer() noexcept;
 	std::vector<std::byte> &GetAcceptBuffer() noexcept;
 
 private:

@@ -173,6 +173,10 @@ bool ValidateOptions(int argc, char **argv)
 			}
 
 			case 'a':
+				// read from an env file defined on the system in the dir exe
+				// this file will contain the access token
+				// if -a is enabled, the client must provide the token when connecting
+				// if it doesnt, or the token is wrong, the connection will be terminated
 				break;
 
 			case '?':

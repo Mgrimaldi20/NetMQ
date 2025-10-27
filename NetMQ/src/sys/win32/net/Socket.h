@@ -16,6 +16,9 @@ public:
 	void Bind(std::string_view port) const;
 	void Listen() const;
 
+	int Send(WSABUF &wsabuf, OverlappedIO &overlapped);
+	int Recv(WSABUF &wsabuf, OverlappedIO &overlapped);
+
 	void CancelIO(OverlappedIO &overlapped) noexcept;
 
 	SOCKET &GetSocket() noexcept;

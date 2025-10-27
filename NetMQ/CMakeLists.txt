@@ -34,6 +34,7 @@ endif()
 
 # Specify the common OS independent source files for the NetMQ project.
 target_sources(NetMQ PRIVATE
+	"src/framework/Bitmask.h"
 	"src/sys/Cmd.h"
 	"src/framework/Cmd.cpp"
 	"src/framework/Log.h"
