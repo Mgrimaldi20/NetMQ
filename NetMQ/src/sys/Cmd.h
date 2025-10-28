@@ -10,6 +10,8 @@
 #include <span>
 #include <tuple>
 
+#include "framework/Bitmask.h"
+
 class IOContext;
 
 namespace CmdUtil	// functions implemented differently depending on host endianness at compile time for each type
@@ -54,7 +56,8 @@ public:
 		Publish,
 		Subscribe,
 		Unsubscribe,
-		Disconnect
+		Disconnect,
+		Ping
 	};
 
 	Cmd(std::shared_ptr<IOContext> ioctx) noexcept
@@ -72,6 +75,8 @@ protected:
 class ConnectCmd : public Cmd
 {
 public:
+	enum class Flags : uint16_t;
+
 	ConnectCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params);
 	virtual ~ConnectCmd() = default;
 
@@ -79,6 +84,15 @@ public:
 
 private:
 	std::span<std::byte> clientid;
+};
+
+template<>
+struct Bitmask::EnableBitmaskOperators<ConnectCmd::Flags> : std::true_type {};
+
+enum class ConnectCmd::Flags : uint16_t
+{
+	ClientId = Bitmask::Bit<Flags, 0>(),
+	AuthTkn = Bitmask::Bit<Flags, 1>()
 };
 
 class PublishCmd : public Cmd
@@ -123,6 +137,15 @@ class DisconnectCmd : public Cmd
 public:
 	DisconnectCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params);
 	virtual ~DisconnectCmd() = default;
+
+	void operator()() const override final;
+};
+
+class PingCmd : public Cmd
+{
+public:
+	PingCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params);
+	virtual ~PingCmd() = default;
 
 	void operator()() const override final;
 };

@@ -6,6 +6,7 @@ const std::string GetErrorMessage(const int errcode);
 
 IOContext::IOContext(Log &log, std::list<std::shared_ptr<IOContext>> &ioctxlist, std::mutex &ioctxlistmtx)
 	: acceptsocket(),
+	clientid(),
 	acceptov(IOOperation::Accept, {}),
 	recvov(IOOperation::Read, {}),
 	sendov(IOOperation::Write, {}),

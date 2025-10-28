@@ -53,6 +53,8 @@ private:
 
 	Socket acceptsocket;
 
+	std::string clientid;
+
 	OverlappedIO acceptov;
 	OverlappedIO recvov;
 	OverlappedIO sendov;

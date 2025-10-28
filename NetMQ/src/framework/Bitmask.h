@@ -81,10 +81,16 @@ namespace Bitmask
 	}
 
 	template <typename T>
-	consteval T Bit(const int bit) noexcept requires EnableBitmaskOperators<T>::value
+	constexpr bool HasFlag(T value, T flag) noexcept requires EnableBitmaskOperators<T>::value
 	{
-		static_assert((bit >= 0) && (bit < (sizeof(std::underlying_type_t<T>) * 8)), "Bit index out of range for type T");
-		return static_cast<T>(static_cast<std::underlying_type_t<T>>(1) << bit);
+		return (value & flag) == flag;
+	}
+
+	template <typename T, unsigned int B>
+	consteval T Bit() noexcept requires EnableBitmaskOperators<T>::value
+	{
+		static_assert(B < (sizeof(std::underlying_type_t<T>) * 8), "Bit index out of range for type T");
+		return static_cast<T>(static_cast<std::underlying_type_t<T>>(1) << B);
 	}
 }
 

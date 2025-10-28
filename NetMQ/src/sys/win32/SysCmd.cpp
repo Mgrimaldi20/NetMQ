@@ -109,3 +109,7 @@ void DisconnectCmd::operator()() const
 
 	ioctx->CloseClient();
 }
+
+void PingCmd::operator()() const
+{
+}
