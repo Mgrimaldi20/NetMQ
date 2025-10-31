@@ -26,22 +26,13 @@ public:
 	~Log();
 
 	template <typename ...Args>
-	inline void Info(std::format_string<Args...> fmt, Args &&...args)
-	{
-		Write(Log::Type::Info, std::format(fmt, std::forward<Args>(args)...));
-	}
+	inline void Info(std::format_string<Args...> fmt, Args &&...args);
 
 	template <typename ...Args>
-	inline void Warn(std::format_string<Args...> fmt, Args &&...args)
-	{
-		Write(Log::Type::Warn, std::format(fmt, std::forward<Args>(args)...));
-	}
+	inline void Warn(std::format_string<Args...> fmt, Args &&...args);
 
 	template <typename ...Args>
-	inline void Error(std::format_string<Args...> fmt, Args &&...args)
-	{
-		Write(Log::Type::Error, std::format(fmt, std::forward<Args>(args)...));
-	}
+	inline void Error(std::format_string<Args...> fmt, Args &&...args);
 
 private:
 	enum class Type
@@ -51,7 +42,8 @@ private:
 		Error
 	};
 
-	void Write(Log::Type type, const std::string &msg);
+	template <Log::Type T>
+	void Write(const std::string &msg);
 
 	std::ofstream logfile;
 	std::ostream &outstream;
@@ -59,5 +51,23 @@ private:
 
 	std::mutex logmtx;
 };
+
+template<typename ...Args>
+inline void Log::Info(std::format_string<Args...> fmt, Args && ...args)
+{
+	Write<Log::Type::Info>(std::format(fmt, std::forward<Args>(args)...));
+}
+
+template<typename ...Args>
+inline void Log::Warn(std::format_string<Args...> fmt, Args && ...args)
+{
+	Write<Log::Type::Warn>(std::format(fmt, std::forward<Args>(args)...));
+}
+
+template<typename ...Args>
+inline void Log::Error(std::format_string<Args...> fmt, Args && ...args)
+{
+	Write<Log::Type::Error>(std::format(fmt, std::forward<Args>(args)...));
+}
 
 #endif

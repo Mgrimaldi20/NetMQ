@@ -83,6 +83,8 @@ public:
 	void operator()() const override final;
 
 private:
+	Flags flags;
+
 	std::span<std::byte> clientid;
 };
 
@@ -111,13 +113,27 @@ private:
 class SubscribeCmd : public Cmd
 {
 public:
+	enum class Flags : uint16_t;
+
 	SubscribeCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params);
 	virtual ~SubscribeCmd() = default;
 
 	void operator()() const override final;
 
 private:
+	Flags flags;
+
 	std::span<std::byte> topic;
+};
+
+template<>
+struct Bitmask::EnableBitmaskOperators<SubscribeCmd::Flags> : std::true_type {};
+
+enum class SubscribeCmd::Flags : uint16_t
+{
+	None = 0,
+	PostAllData = Bitmask::Bit<Flags, 0>(),
+	PostChangedData = Bitmask::Bit<Flags, 1>()
 };
 
 class UnsubscribeCmd : public Cmd

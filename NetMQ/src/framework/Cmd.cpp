@@ -32,10 +32,21 @@ ConnectCmd::ConnectCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> pa
 
 	offset += std::get<0>(version);
 
-	std::tuple<size_t, uint8_t> packetsize = CmdUtil::ReadUInt<uint8_t>(params, offset);
-	offset += std::get<0>(packetsize);
-	uint8_t clientidlen = std::get<1>(packetsize);
-	clientid = params.subspan(offset, clientidlen);
+	std::tuple<size_t, std::underlying_type_t<Flags>> parsedflags = CmdUtil::ReadUInt<std::underlying_type_t<Flags>>(params, offset);
+	offset += std::get<0>(parsedflags);
+	flags = static_cast<Flags>(std::get<1>(parsedflags));
+
+	if (Bitmask::HasFlag(flags, Flags::ClientId))
+	{
+		std::tuple<size_t, uint8_t> packetsize = CmdUtil::ReadUInt<uint8_t>(params, offset);
+		offset += std::get<0>(packetsize);
+		uint8_t clientidlen = std::get<1>(packetsize);
+		clientid = params.subspan(offset, clientidlen);
+	}
+
+	if (Bitmask::HasFlag(flags, Flags::AuthTkn))
+	{
+	}
 }
 
 PublishCmd::PublishCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params)
@@ -59,6 +70,13 @@ SubscribeCmd::SubscribeCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte
 	: Cmd(ioctx)
 {
 	size_t offset = 0;
+
+	std::tuple<size_t, std::underlying_type_t<Flags>> parsedflags = CmdUtil::ReadUInt<std::underlying_type_t<Flags>>(params, offset);
+	offset += std::get<0>(parsedflags);
+	flags = static_cast<Flags>(std::get<1>(parsedflags));
+
+	if (Bitmask::HasFlag(flags, Flags::None))
+		throw std::runtime_error("Invalid flags specified, flags must be set for Subscribe command");
 
 	std::tuple<size_t, uint32_t> ret = CmdUtil::ReadUInt<uint32_t>(params, offset);
 	offset += std::get<0>(ret);
