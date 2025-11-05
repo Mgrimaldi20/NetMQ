@@ -5,9 +5,11 @@
 #include <cstdint>
 #include <cstddef>
 #include <cstring>
+#include <string>
 #include <concepts>
 #include <bit>
 #include <span>
+#include <vector>
 #include <tuple>
 
 #include "framework/Bitmask.h"
@@ -85,7 +87,8 @@ public:
 private:
 	Flags flags;
 
-	std::span<std::byte> clientid;
+	std::string clientid;
+	std::span<std::byte> authtoken;
 };
 
 template<>

@@ -37,9 +37,22 @@ void Socket::Bind(std::string_view port) const
 {
 	struct AddrInfo
 	{
-		AddrInfo()
+		AddrInfo(std::string_view port)
 			: addrlocal(nullptr)
 		{
+			addrinfo hints =
+			{
+				.ai_flags = AI_PASSIVE,
+				.ai_family = AF_INET6,
+				.ai_socktype = SOCK_STREAM,
+				.ai_protocol = IPPROTO_TCP
+			};
+
+			if (getaddrinfo(nullptr, port.data(), &hints, &addrlocal) != 0)
+				throw std::runtime_error(std::format("getaddrinfo() failed with error: {}", GetErrorMessage(WSAGetLastError())));
+
+			if (!addrlocal)
+				throw std::runtime_error("getaddrinfo() failed to resolve/convert the interface");
 		}
 
 		~AddrInfo()
@@ -51,19 +64,7 @@ void Socket::Bind(std::string_view port) const
 		addrinfo *addrlocal;
 	};
 
-	addrinfo hints = {};
-	hints.ai_flags = AI_PASSIVE;
-	hints.ai_family = AF_INET6;
-	hints.ai_socktype = SOCK_STREAM;
-	hints.ai_protocol = IPPROTO_TCP;
-
-	AddrInfo addr;
-
-	if (getaddrinfo(nullptr, port.data(), &hints, &addr.addrlocal) != 0)
-		throw std::runtime_error(std::format("getaddrinfo() failed with error: {}", GetErrorMessage(WSAGetLastError())));
-
-	if (!addr.addrlocal)
-		throw std::runtime_error("getaddrinfo() failed to resolve/convert the interface");
+	AddrInfo addr(port);
 
 	int ret = bind(socket, addr.addrlocal->ai_addr, (int)addr.addrlocal->ai_addrlen);
 	if (ret == SOCKET_ERROR)

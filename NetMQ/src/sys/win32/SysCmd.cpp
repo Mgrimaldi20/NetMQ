@@ -29,6 +29,7 @@ void ConnectCmd::operator()() const
 	if (ioctx->GetConnected().load())
 		return;
 
+	ioctx->SetClientID(clientid);
 	ioctx->SetConnected(true);
 }
 

@@ -34,6 +34,9 @@ public:
 	void CancelOverlappedIO() noexcept;
 
 	Socket &GetAcceptSocket() noexcept;
+
+	void SetClientID(const std::string &id) noexcept;
+
 	OverlappedIO &GetAcceptOverlapped() noexcept;
 
 	std::atomic<bool> &GetConnected() noexcept;

@@ -1,3 +1,5 @@
+#define _CRT_SECURE_NO_WARNINGS
+
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
@@ -27,16 +29,19 @@ void WorkerThread(const IOCompletionPort &iocp, Socket &listensocket, const CmdS
 bool GetAcceptExFnPtr(Socket &listensocket, Log &log);
 bool PostAccept(Socket &listensocket, Log &log);
 
-LPFN_ACCEPTEX AcceptExFn;
+static LPFN_ACCEPTEX AcceptExFn;
 
-std::list<std::shared_ptr<IOContext>> ioctxlist;
-std::mutex ioctxlistmtx;
+static std::list<std::shared_ptr<IOContext>> ioctxlist;
+static std::mutex ioctxlistmtx;
 
-std::atomic<bool> endserver;
-std::atomic<bool> restartserver;
-std::condition_variable cleanupcv;
+static std::atomic<bool> endserver;
+static std::atomic<bool> restartserver;
+static std::condition_variable cleanupcv;
 
 static std::string_view serverport = Socket::NET_DEFAULT_PORT;
+
+static bool authenabled;
+static std::vector<std::byte> authtkn;
 
 int main(int argc, char **argv)
 {
@@ -173,11 +178,22 @@ bool ValidateOptions(int argc, char **argv)
 			}
 
 			case 'a':
-				// read from an env file defined on the system in the dir exe
-				// this file will contain the access token
-				// if -a is enabled, the client must provide the token when connecting
-				// if it doesnt, or the token is wrong, the connection will be terminated
+			{
+				authenabled = true;
+
+				std::string envtkn = std::getenv("NETMQ_AUTH_TOKEN");
+				if (envtkn.empty())
+				{
+					std::cerr << "Error: -a flag requires NETMQ_AUTH_TOKEN environment variable to be set" << std::endl;
+					return false;
+				}
+
+				for (char c : envtkn)
+					authtkn.push_back(static_cast<std::byte>(c));
+
+				std::cout << "Authentication enabled with token from environment" << std::endl;
 				break;
+			}
 
 			case '?':
 				std::cout << std::endl << "Usage:" << std::endl

@@ -1,10 +1,17 @@
+#include <cctype>
 #include <stdexcept>
+#include <algorithm>
 #include <format>
 #include <array>
+#include <unordered_set>
+
+#include "UUID.h"
 
 #include "sys/Cmd.h"
 
 static constexpr uint8_t NETMQ_VERSION = 1;
+
+static std::unordered_set<std::string> usedidset;
 
 ConnectCmd::ConnectCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params)
 	: Cmd(ioctx)
@@ -41,11 +48,42 @@ ConnectCmd::ConnectCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> pa
 		std::tuple<size_t, uint8_t> packetsize = CmdUtil::ReadUInt<uint8_t>(params, offset);
 		offset += std::get<0>(packetsize);
 		uint8_t clientidlen = std::get<1>(packetsize);
-		clientid = params.subspan(offset, clientidlen);
+		if (clientidlen == 0)
+			throw std::runtime_error("Client ID flag is set but client ID length is zero");
+
+		std::span<std::byte> tmpclientid = params.subspan(offset, clientidlen);
+		std::transform(tmpclientid.begin(), tmpclientid.end(), std::back_inserter(clientid), [](std::byte b) { return static_cast<char>(b); });
+
+		if (!usedidset.insert(clientid).second || !std::all_of(clientid.begin(), clientid.end(), [](unsigned char c) { return std::isprint(c); }))
+			throw std::runtime_error("Client ID not valid");
+
+		offset += clientidlen;
+	}
+
+	else	// no client ID provided, so generate one
+	{
+		auto res = usedidset.insert(UUID::GenerateV4());
+		if (!res.second)
+		{
+			res = usedidset.insert(UUID::GenerateV4());
+			if (!res.second)
+				throw std::runtime_error("Failed to generate a client ID");
+		}
+
+		clientid = *res.first;
 	}
 
 	if (Bitmask::HasFlag(flags, Flags::AuthTkn))
 	{
+		std::tuple<size_t, uint8_t> tokenlen = CmdUtil::ReadUInt<uint8_t>(params, offset);
+		offset += std::get<0>(tokenlen);
+		uint8_t authtokenlen = std::get<1>(tokenlen);
+
+		if (authtokenlen == 0)
+			throw std::runtime_error("Auth token flag is set but token length is zero");
+
+		authtoken = params.subspan(offset, authtokenlen);
+		offset += authtokenlen;
 	}
 }
 

@@ -95,7 +95,7 @@ void IOContext::CloseClient()
 	if (!closing.compare_exchange_strong(expected, true, std::memory_order_acq_rel))
 		return;
 
-	log.Info("Closing client: {}", acceptsocket.GetSocket());
+	log.Info("Closing client: {}", clientid);
 
 	{
 		std::scoped_lock lock(ioctxlistmtx);
@@ -113,6 +113,11 @@ void IOContext::CancelOverlappedIO() noexcept
 Socket &IOContext::GetAcceptSocket() noexcept
 {
 	return acceptsocket;
+}
+
+void IOContext::SetClientID(const std::string &id) noexcept
+{
+	clientid = id;
 }
 
 OverlappedIO &IOContext::GetAcceptOverlapped() noexcept

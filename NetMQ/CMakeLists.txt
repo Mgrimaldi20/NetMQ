@@ -41,6 +41,8 @@ target_sources(NetMQ PRIVATE
 	"src/framework/Log.cpp"
 	"src/framework/CmdSystem.h"
 	"src/framework/CmdSystem.cpp"
+	"src/framework/UUID.h"
+	"src/framework/UUID.cpp"
 )
 
 include_directories(src)
