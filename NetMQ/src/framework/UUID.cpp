@@ -23,8 +23,8 @@ namespace UUID
 
 std::string UUID::GenerateV4()
 {
-	static std::uint64_t rand = GenerateRandomUInt64();
-	static std::uint64_t rand1 = GenerateRandomUInt64();
+	std::uint64_t rand = GenerateRandomUInt64();
+	std::uint64_t rand1 = GenerateRandomUInt64();
 
 	std::stringstream ss;
 	ss << std::hex << std::setfill('0');
