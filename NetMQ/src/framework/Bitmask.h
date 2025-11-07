@@ -86,6 +86,12 @@ namespace Bitmask
 		return (value & flag) == flag;
 	}
 
+	template <typename T>
+	inline constexpr T SetFlag(T value, T flag) noexcept requires EnableBitmaskOperators<T>::value
+	{
+		return value | flag;
+	}
+
 	template <typename T, unsigned int B>
 	inline consteval T Bit() noexcept requires EnableBitmaskOperators<T>::value
 	{

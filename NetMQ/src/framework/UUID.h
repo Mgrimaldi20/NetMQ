@@ -5,11 +5,10 @@
 
 /*
 * Namespace: UUID
-* UUID generators currently only supporting V4 UUIDs, but be warned, this UUID generator is not to spec.
-* This UUID generation isnt perfect, and they arent real UUIDs since they are not 128 bits of randomness.
-* This code may eventually be deprecated and removed all together in the future in place of system libraries.
+* UUID generators supporting V4 (random) UUIDs.
+* Generates 128-bit UUIDs with 122 bits of randomness.
 *
-*	GenerateV4: Generates a V4 (random) UUID
+*	GenerateV4: Generates a V4 (random) UUID with cryptographically secure randomness
 */
 namespace UUID
 {

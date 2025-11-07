@@ -86,6 +86,7 @@ int main(int argc, char **argv)
 			return 1;
 		}
 
+		log.Info("Pre posting accepts: {}", NET_DEFAULT_PRE_POST_ACCEPTS);
 		for (unsigned int i=0; i<NET_DEFAULT_PRE_POST_ACCEPTS; i++)
 		{
 			if (!PostAccept(listensocket, log))

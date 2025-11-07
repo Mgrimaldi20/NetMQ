@@ -7,10 +7,10 @@
 #include <cstring>
 #include <string>
 #include <concepts>
+#include <utility>
 #include <bit>
 #include <span>
 #include <vector>
-#include <tuple>
 
 #include "framework/Bitmask.h"
 
@@ -25,14 +25,14 @@ namespace CmdUtil	// functions implemented differently depending on host endiann
 		|| std::same_as<T, uint64_t>;
 
 	template<ValidUIntType T>
-	constexpr std::tuple<size_t, T> ReadUInt(std::span<const std::byte> buffer, const size_t offset)
+	constexpr std::pair<size_t, T> ReadUInt(std::span<const std::byte> buffer, const size_t offset)
 	{
 		static constexpr size_t OUT_SIZE = sizeof(T);
 
 		T out = 0;
 
 		if (buffer.size() < (offset + OUT_SIZE))
-			return std::make_tuple(0, out);
+			return std::make_pair(0, out);
 
 		if constexpr (std::same_as<T, uint8_t>)
 			out = std::to_integer<uint8_t>(buffer[offset]);
@@ -45,7 +45,7 @@ namespace CmdUtil	// functions implemented differently depending on host endiann
 				out = std::byteswap(out);
 		}
 
-		return std::make_tuple(OUT_SIZE, out);
+		return std::make_pair(OUT_SIZE, out);
 	}
 }
 
@@ -103,14 +103,28 @@ enum class ConnectCmd::Flags : uint16_t
 class PublishCmd : public Cmd
 {
 public:
+	enum class Flags : uint16_t;
+
 	PublishCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params);
 	virtual ~PublishCmd() = default;
 
 	void operator()() const override final;
 
 private:
+	Flags flags;
+
 	std::span<std::byte> topic;
 	std::span<std::byte> msg;
+};
+
+template<>
+struct Bitmask::EnableBitmaskOperators<PublishCmd::Flags> : std::true_type {};
+
+enum class PublishCmd::Flags : uint16_t
+{
+	None = 0,
+	NoAck = Bitmask::Bit<Flags, 0>(),
+	AckAll = Bitmask::Bit<Flags, 1>()
 };
 
 class SubscribeCmd : public Cmd
