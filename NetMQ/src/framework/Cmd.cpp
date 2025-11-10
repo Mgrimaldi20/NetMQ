@@ -14,7 +14,8 @@ static constexpr uint8_t NETMQ_VERSION = 1;
 static std::unordered_set<std::string> usedidset;
 
 ConnectCmd::ConnectCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params)
-	: Cmd(ioctx)
+	: Cmd(ioctx),
+	flags(Flags::None)
 {
 	static constexpr std::array<std::byte, 5> HEADER_BYTES =
 	{
@@ -98,16 +99,14 @@ ConnectCmd::ConnectCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> pa
 }
 
 PublishCmd::PublishCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params)
-	: Cmd(ioctx)
+	: Cmd(ioctx),
+	flags(Flags::None)
 {
 	size_t offset = 0;
 
 	std::pair<size_t, std::underlying_type_t<Flags>> parsedflags = CmdUtil::ReadUInt<std::underlying_type_t<Flags>>(params, offset);
 	offset += std::get<0>(parsedflags);
 	flags = static_cast<Flags>(std::get<1>(parsedflags));
-
-	if (Bitmask::HasFlag(flags, Flags::None))
-		throw std::runtime_error("Invalid flags specified, flags must be set for Publish command");
 
 	std::pair<size_t, uint32_t> ret = CmdUtil::ReadUInt<uint32_t>(params, offset);
 	offset += std::get<0>(ret);
@@ -125,13 +124,6 @@ SubscribeCmd::SubscribeCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte
 	: Cmd(ioctx)
 {
 	size_t offset = 0;
-
-	std::pair<size_t, std::underlying_type_t<Flags>> parsedflags = CmdUtil::ReadUInt<std::underlying_type_t<Flags>>(params, offset);
-	offset += std::get<0>(parsedflags);
-	flags = static_cast<Flags>(std::get<1>(parsedflags));
-
-	if (Bitmask::HasFlag(flags, Flags::None))
-		throw std::runtime_error("Invalid flags specified, flags must be set for Subscribe command");
 
 	std::pair<size_t, uint32_t> ret = CmdUtil::ReadUInt<uint32_t>(params, offset);
 	offset += std::get<0>(ret);

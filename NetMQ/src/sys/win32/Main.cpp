@@ -303,7 +303,7 @@ void WorkerThread(const IOCompletionPort &iocp, Socket &listensocket, const CmdS
 				break;
 			}
 
-			case IOOperation::Read:		// a write operation is complete, so post a read to get more data from the client
+			case IOOperation::Read:		// a read operation is complete, so post a write to get more data from the client
 			{
 				ioctx->SetRecving(false);
 
@@ -331,7 +331,7 @@ void WorkerThread(const IOCompletionPort &iocp, Socket &listensocket, const CmdS
 				break;
 			}
 
-			case IOOperation::Write:	// a read operation is complete, so post a write back to the client now
+			case IOOperation::Write:	// a write operation is complete, so post a read back to the client now
 				ioctx->SetSending(false);
 				break;
 		}

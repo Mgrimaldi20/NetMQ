@@ -18,7 +18,7 @@ class IOContext;
 
 namespace CmdUtil	// functions implemented differently depending on host endianness at compile time for each type
 {
-	template <typename T>
+	template<typename T>
 	concept ValidUIntType = std::same_as<T, uint8_t>	// very cool stuff, concepts let you control instantiated typed
 		|| std::same_as<T, uint16_t>
 		|| std::same_as<T, uint32_t>
@@ -96,6 +96,7 @@ struct Bitmask::EnableBitmaskOperators<ConnectCmd::Flags> : std::true_type {};
 
 enum class ConnectCmd::Flags : uint16_t
 {
+	None = 0,
 	ClientId = Bitmask::Bit<Flags, 0>(),
 	AuthTkn = Bitmask::Bit<Flags, 1>()
 };
@@ -123,34 +124,19 @@ struct Bitmask::EnableBitmaskOperators<PublishCmd::Flags> : std::true_type {};
 enum class PublishCmd::Flags : uint16_t
 {
 	None = 0,
-	NoAck = Bitmask::Bit<Flags, 0>(),
-	AckAll = Bitmask::Bit<Flags, 1>()
+	NoAck = Bitmask::Bit<Flags, 0>()
 };
 
 class SubscribeCmd : public Cmd
 {
 public:
-	enum class Flags : uint16_t;
-
 	SubscribeCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params);
 	virtual ~SubscribeCmd() = default;
 
 	void operator()() const override final;
 
 private:
-	Flags flags;
-
 	std::span<std::byte> topic;
-};
-
-template<>
-struct Bitmask::EnableBitmaskOperators<SubscribeCmd::Flags> : std::true_type {};
-
-enum class SubscribeCmd::Flags : uint16_t
-{
-	None = 0,
-	PostAllData = Bitmask::Bit<Flags, 0>(),
-	PostChangedData = Bitmask::Bit<Flags, 1>()
 };
 
 class UnsubscribeCmd : public Cmd
@@ -181,6 +167,19 @@ public:
 	virtual ~PingCmd() = default;
 
 	void operator()() const override final;
+
+private:
+	class PingAck
+	{
+	public:
+		PingAck();
+		~PingAck() = default;
+
+		std::vector<std::byte> CreateMsg();
+
+	private:
+		Cmd::Type type;
+	} pingack;
 };
 
 #endif

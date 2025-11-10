@@ -25,13 +25,13 @@ public:
 	Log(const std::filesystem::path &fullpath);
 	~Log();
 
-	template <typename ...Args>
+	template<typename ...Args>
 	inline void Info(std::format_string<Args...> fmt, Args &&...args);
 
-	template <typename ...Args>
+	template<typename ...Args>
 	inline void Warn(std::format_string<Args...> fmt, Args &&...args);
 
-	template <typename ...Args>
+	template<typename ...Args>
 	inline void Error(std::format_string<Args...> fmt, Args &&...args);
 
 private:
@@ -42,7 +42,7 @@ private:
 		Error
 	};
 
-	template <Log::Type T>
+	template<Log::Type T>
 	void Write(const std::string &msg);
 
 	std::ofstream logfile;
