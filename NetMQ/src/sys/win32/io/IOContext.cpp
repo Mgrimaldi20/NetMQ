@@ -68,7 +68,7 @@ void IOContext::PostRecv()
 
 void IOContext::PostSend(std::span<std::byte> data)
 {
-	if (sending.load() || outgoing.empty())
+	if (sending.load() || data.empty())
 		return;
 
 	outgoing.assign_range(data);

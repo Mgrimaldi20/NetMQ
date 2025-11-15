@@ -38,29 +38,3 @@ Log::~Log()
 
 	outstream.flush();
 }
-
-template <Log::Type T>
-void Log::Write(const std::string &msg)
-{
-	constexpr auto GetTypeStr = []() consteval
-	{
-		if constexpr (T == Log::Type::Info) return "INFO";
-		else if constexpr (T == Log::Type::Warn) return "WARN";
-		else if constexpr (T == Log::Type::Error) return "ERROR";
-		else return "UNKNOWN";
-	};
-
-	std::scoped_lock lock(logmtx);
-
-	std::format_to(
-		std::ostream_iterator<char>(outstream),
-		"{} [{}] {}\n",
-		std::chrono::floor<std::chrono::seconds>(std::chrono::current_zone()->to_local(std::chrono::system_clock::now())),
-		GetTypeStr(),
-		msg
-	);
-}
-
-template void Log::Write<Log::Type::Info>(const std::string &msg);
-template void Log::Write<Log::Type::Warn>(const std::string &msg);
-template void Log::Write<Log::Type::Error>(const std::string &msg);

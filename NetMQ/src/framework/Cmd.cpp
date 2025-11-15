@@ -13,9 +13,22 @@ static constexpr uint8_t NETMQ_VERSION = 1;
 
 static std::unordered_set<std::string> usedidset;
 
+void Cmd::operator()() const
+{
+	ExecuteCmd();
+
+	if (ackrequired)
+		ExecuteAck();
+}
+
+PingCmd::PingCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params)
+	: Cmd(ioctx)
+{
+	(void)params;
+}
+
 ConnectCmd::ConnectCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params)
-	: Cmd(ioctx),
-	flags(Flags::None)
+	: Cmd(ioctx)
 {
 	static constexpr std::array<std::byte, 5> HEADER_BYTES =
 	{
@@ -99,14 +112,13 @@ ConnectCmd::ConnectCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> pa
 }
 
 PublishCmd::PublishCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params)
-	: Cmd(ioctx),
-	flags(Flags::None)
+	: Cmd(ioctx)
 {
 	size_t offset = 0;
 
-	std::pair<size_t, std::underlying_type_t<Flags>> parsedflags = CmdUtil::ReadUInt<std::underlying_type_t<Flags>>(params, offset);
+	std::pair<size_t, std::underlying_type_t<Options>> parsedflags = CmdUtil::ReadUInt<std::underlying_type_t<Options>>(params, offset);
 	offset += std::get<0>(parsedflags);
-	flags = static_cast<Flags>(std::get<1>(parsedflags));
+	options = static_cast<Options>(std::get<1>(parsedflags));
 
 	std::pair<size_t, uint32_t> ret = CmdUtil::ReadUInt<uint32_t>(params, offset);
 	offset += std::get<0>(ret);
@@ -145,11 +157,5 @@ UnsubscribeCmd::UnsubscribeCmd(std::shared_ptr<IOContext> ioctx, std::span<std::
 DisconnectCmd::DisconnectCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params)
 	: Cmd(ioctx)
 {
-	(void)params;
-}
-
-PingCmd::PingCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params)
-	: Cmd(ioctx)
-{
-	(void)params;
+	std::pair<size_t, uint8_t> ret = CmdUtil::ReadUInt<uint8_t>(params, 0);
 }

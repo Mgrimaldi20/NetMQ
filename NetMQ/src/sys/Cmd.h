@@ -54,12 +54,12 @@ class Cmd
 public:
 	enum class Type
 	{
+		Ping,
 		Connect,
 		Publish,
 		Subscribe,
 		Unsubscribe,
-		Disconnect,
-		Ping
+		Disconnect
 	};
 
 	Cmd(std::shared_ptr<IOContext> ioctx) noexcept
@@ -68,24 +68,41 @@ public:
 
 	virtual ~Cmd() = default;
 
-	virtual void operator()() const = 0;
+	void operator()() const;
 
 protected:
+	virtual void ExecuteCmd() const = 0;
+	virtual void ExecuteAck() const = 0;
+
 	std::shared_ptr<IOContext> ioctx;
+
+private:
+	bool ackrequired;
+};
+
+class PingCmd : public Cmd
+{
+public:
+	PingCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params);
+	virtual ~PingCmd() = default;
+
+protected:
+	void ExecuteCmd() const override final;
+	void ExecuteAck() const override final;
 };
 
 class ConnectCmd : public Cmd
 {
 public:
-	enum class Flags : uint16_t;
-
 	ConnectCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params);
 	virtual ~ConnectCmd() = default;
 
-	void operator()() const override final;
+protected:
+	void ExecuteCmd() const override final;
+	void ExecuteAck() const override final;
 
 private:
-	Flags flags;
+	enum class Flags : uint16_t flags;
 
 	std::string clientid;
 	std::span<std::byte> authtoken;
@@ -96,7 +113,6 @@ struct Bitmask::EnableBitmaskOperators<ConnectCmd::Flags> : std::true_type {};
 
 enum class ConnectCmd::Flags : uint16_t
 {
-	None = 0,
 	ClientId = Bitmask::Bit<Flags, 0>(),
 	AuthTkn = Bitmask::Bit<Flags, 1>()
 };
@@ -104,27 +120,22 @@ enum class ConnectCmd::Flags : uint16_t
 class PublishCmd : public Cmd
 {
 public:
-	enum class Flags : uint16_t;
-
 	PublishCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params);
 	virtual ~PublishCmd() = default;
 
-	void operator()() const override final;
+protected:
+	void ExecuteCmd() const override final;
+	void ExecuteAck() const override final;
 
 private:
-	Flags flags;
+	enum class Options : uint16_t
+	{
+		Ack,
+		NoAck
+	} options;
 
 	std::span<std::byte> topic;
 	std::span<std::byte> msg;
-};
-
-template<>
-struct Bitmask::EnableBitmaskOperators<PublishCmd::Flags> : std::true_type {};
-
-enum class PublishCmd::Flags : uint16_t
-{
-	None = 0,
-	NoAck = Bitmask::Bit<Flags, 0>()
 };
 
 class SubscribeCmd : public Cmd
@@ -133,7 +144,9 @@ public:
 	SubscribeCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params);
 	virtual ~SubscribeCmd() = default;
 
-	void operator()() const override final;
+protected:
+	void ExecuteCmd() const override final;
+	void ExecuteAck() const override final;
 
 private:
 	std::span<std::byte> topic;
@@ -145,7 +158,9 @@ public:
 	UnsubscribeCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params);
 	virtual ~UnsubscribeCmd() = default;
 
-	void operator()() const override final;
+protected:
+	void ExecuteCmd() const override final;
+	void ExecuteAck() const override final;
 
 private:
 	std::span<std::byte> topic;
@@ -157,29 +172,9 @@ public:
 	DisconnectCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params);
 	virtual ~DisconnectCmd() = default;
 
-	void operator()() const override final;
-};
-
-class PingCmd : public Cmd
-{
-public:
-	PingCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params);
-	virtual ~PingCmd() = default;
-
-	void operator()() const override final;
-
-private:
-	class PingAck
-	{
-	public:
-		PingAck();
-		~PingAck() = default;
-
-		std::vector<std::byte> CreateMsg();
-
-	private:
-		Cmd::Type type;
-	} pingack;
+protected:
+	void ExecuteCmd() const override final;
+	void ExecuteAck() const override final;
 };
 
 #endif

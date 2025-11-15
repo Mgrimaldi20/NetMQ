@@ -43,7 +43,7 @@ private:
 	};
 
 	template<Log::Type T>
-	void Write(const std::string &msg);
+	void Write(std::string_view msg);
 
 	std::ofstream logfile;
 	std::ostream &outstream;
@@ -68,6 +68,28 @@ template<typename ...Args>
 inline void Log::Error(std::format_string<Args...> fmt, Args && ...args)
 {
 	Write<Log::Type::Error>(std::format(fmt, std::forward<Args>(args)...));
+}
+
+template<Log::Type T>
+inline void Log::Write(std::string_view msg)
+{
+	constexpr auto GetTypeStr = []() consteval
+	{
+		if constexpr (T == Log::Type::Info) return "INFO";
+		else if constexpr (T == Log::Type::Warn) return "WARN";
+		else if constexpr (T == Log::Type::Error) return "ERROR";
+		else return "UNKNOWN";
+	};
+
+	std::scoped_lock lock(logmtx);
+
+	std::format_to(
+		std::ostream_iterator<char>(outstream),
+		"{} [{}] {}\n",
+		std::chrono::floor<std::chrono::seconds>(std::chrono::current_zone()->to_local(std::chrono::system_clock::now())),
+		GetTypeStr(),
+		msg
+	);
 }
 
 #endif

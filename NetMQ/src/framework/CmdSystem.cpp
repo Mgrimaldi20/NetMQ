@@ -15,7 +15,7 @@ std::unique_ptr<Cmd> CmdSystem::ParseCommand(std::shared_ptr<IOContext> ioctx, s
 {
 	size_t offset = 0;
 
-	std::tuple<size_t, uint8_t> cmd = CmdUtil::ReadUInt<uint8_t>(incoming, offset);
+	std::pair<size_t, uint8_t> cmd = CmdUtil::ReadUInt<uint8_t>(incoming, offset);
 	offset += std::get<0>(cmd);
 
 	std::span<std::byte> params = incoming.subspan(offset, (incoming.size() - offset));
@@ -24,6 +24,9 @@ std::unique_ptr<Cmd> CmdSystem::ParseCommand(std::shared_ptr<IOContext> ioctx, s
 
 	switch (type)
 	{
+		case Cmd::Type::Ping:
+			return std::make_unique<PingCmd>(ioctx, params);
+
 		case Cmd::Type::Connect:
 			return std::make_unique<ConnectCmd>(ioctx, params);
 

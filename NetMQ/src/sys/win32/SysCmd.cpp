@@ -57,7 +57,15 @@ struct ByteEquality
 static std::unordered_map<std::vector<std::byte>, std::vector<std::shared_ptr<IOContext>>, ByteHash, ByteEquality> subscriptions;
 static std::mutex subsmtx;
 
-void ConnectCmd::operator()() const
+void PingCmd::ExecuteCmd() const
+{
+}
+
+void PingCmd::ExecuteAck() const
+{
+}
+
+void ConnectCmd::ExecuteCmd() const
 {
 	if (ioctx->GetConnected().load())
 		return;
@@ -66,7 +74,11 @@ void ConnectCmd::operator()() const
 	ioctx->SetConnected(true);
 }
 
-void PublishCmd::operator()() const
+void ConnectCmd::ExecuteAck() const
+{
+}
+
+void PublishCmd::ExecuteCmd() const
 {
 	if (!ioctx->GetConnected().load())
 		return;
@@ -83,7 +95,11 @@ void PublishCmd::operator()() const
 	}
 }
 
-void SubscribeCmd::operator()() const
+void PublishCmd::ExecuteAck() const
+{
+}
+
+void SubscribeCmd::ExecuteCmd() const
 {
 	if (!ioctx->GetConnected().load())
 		return;
@@ -109,7 +125,11 @@ void SubscribeCmd::operator()() const
 	}
 }
 
-void UnsubscribeCmd::operator()() const
+void SubscribeCmd::ExecuteAck() const
+{
+}
+
+void UnsubscribeCmd::ExecuteCmd() const
 {
 	if (!ioctx->GetConnected().load())
 		return;
@@ -129,7 +149,11 @@ void UnsubscribeCmd::operator()() const
 	}
 }
 
-void DisconnectCmd::operator()() const
+void UnsubscribeCmd::ExecuteAck() const
+{
+}
+
+void DisconnectCmd::ExecuteCmd() const
 {
 	if (!ioctx->GetConnected().load())
 		return;
@@ -144,6 +168,6 @@ void DisconnectCmd::operator()() const
 	ioctx->CloseClient();
 }
 
-void PingCmd::operator()() const
+void DisconnectCmd::ExecuteAck() const
 {
 }
