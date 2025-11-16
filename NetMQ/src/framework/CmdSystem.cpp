@@ -1,3 +1,10 @@
+#include "cmd/PingCmd.h"
+#include "cmd/ConnectCmd.h"
+#include "cmd/PublishCmd.h"
+#include "cmd/SubscribeCmd.h"
+#include "cmd/UnsubscribeCmd.h"
+#include "cmd/DisconnectCmd.h"
+
 #include "CmdSystem.h"
 
 CmdSystem::CmdSystem(Log &log)

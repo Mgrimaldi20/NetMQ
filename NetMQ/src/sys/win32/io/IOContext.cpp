@@ -1,7 +1,5 @@
 #include "IOContext.h"
 
-#include "../../Cmd.h"
-
 const std::string GetErrorMessage(const int errcode);
 
 IOContext::IOContext(Log &log, std::list<std::shared_ptr<IOContext>> &ioctxlist, std::mutex &ioctxlistmtx)

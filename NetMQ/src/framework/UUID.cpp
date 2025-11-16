@@ -8,7 +8,7 @@
 
 #include "UUID.h"
 
-namespace UUID
+namespace NetMQ::UUID
 {
 	namespace
 	{
@@ -21,7 +21,7 @@ namespace UUID
 	}
 }
 
-std::string UUID::GenerateV4()
+std::string NetMQ::UUID::GenerateV4()
 {
 	std::uint64_t rand = GenerateRandomUInt64();
 	std::uint64_t rand1 = GenerateRandomUInt64();

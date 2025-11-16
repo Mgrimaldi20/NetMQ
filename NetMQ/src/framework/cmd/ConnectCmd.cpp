@@ -1,31 +1,16 @@
-#include <cctype>
 #include <stdexcept>
 #include <algorithm>
 #include <format>
 #include <array>
 #include <unordered_set>
 
-#include "UUID.h"
+#include "framework/UUID.h"
 
-#include "sys/Cmd.h"
+#include "ConnectCmd.h"
 
 static constexpr uint8_t NETMQ_VERSION = 1;
 
 static std::unordered_set<std::string> usedidset;
-
-void Cmd::operator()() const
-{
-	ExecuteCmd();
-
-	if (ackrequired)
-		ExecuteAck();
-}
-
-PingCmd::PingCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params)
-	: Cmd(ioctx)
-{
-	(void)params;
-}
 
 ConnectCmd::ConnectCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params)
 	: Cmd(ioctx)
@@ -81,7 +66,7 @@ ConnectCmd::ConnectCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> pa
 
 		for (unsigned int i=0; i<MAX_CLIENTID_GENERATION_ATTEMPTS && !unique; i++)
 		{
-			auto res = usedidset.insert(UUID::GenerateV4());
+			auto res = usedidset.insert(NetMQ::UUID::GenerateV4());
 
 			unique = res.second;
 			if (!unique)
@@ -111,51 +96,15 @@ ConnectCmd::ConnectCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> pa
 	}
 }
 
-PublishCmd::PublishCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params)
-	: Cmd(ioctx)
+void ConnectCmd::ExecuteCmd() const
 {
-	size_t offset = 0;
+	if (ioctx->GetConnected().load())
+		return;
 
-	std::pair<size_t, std::underlying_type_t<Options>> parsedflags = CmdUtil::ReadUInt<std::underlying_type_t<Options>>(params, offset);
-	offset += std::get<0>(parsedflags);
-	options = static_cast<Options>(std::get<1>(parsedflags));
-
-	std::pair<size_t, uint32_t> ret = CmdUtil::ReadUInt<uint32_t>(params, offset);
-	offset += std::get<0>(ret);
-	uint32_t topiclen = std::get<1>(ret);
-	topic = params.subspan(offset, topiclen);
-	offset += topiclen;
-
-	ret = CmdUtil::ReadUInt<uint32_t>(params, offset);
-	offset += std::get<0>(ret);
-	uint32_t msglen = std::get<1>(ret);
-	msg = params.subspan(offset, msglen);
+	ioctx->SetClientID(clientid);
+	ioctx->SetConnected(true);
 }
 
-SubscribeCmd::SubscribeCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params)
-	: Cmd(ioctx)
+void ConnectCmd::ExecuteAck() const
 {
-	size_t offset = 0;
-
-	std::pair<size_t, uint32_t> ret = CmdUtil::ReadUInt<uint32_t>(params, offset);
-	offset += std::get<0>(ret);
-	uint32_t topiclen = std::get<1>(ret);
-	topic = params.subspan(offset, topiclen);
-}
-
-UnsubscribeCmd::UnsubscribeCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params)
-	: Cmd(ioctx)
-{
-	size_t offset = 0;
-
-	std::pair<size_t, uint32_t> ret = CmdUtil::ReadUInt<uint32_t>(params, offset);
-	offset += std::get<0>(ret);
-	uint32_t topiclen = std::get<1>(ret);
-	topic = params.subspan(offset, topiclen);
-}
-
-DisconnectCmd::DisconnectCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params)
-	: Cmd(ioctx)
-{
-	std::pair<size_t, uint8_t> ret = CmdUtil::ReadUInt<uint8_t>(params, 0);
 }

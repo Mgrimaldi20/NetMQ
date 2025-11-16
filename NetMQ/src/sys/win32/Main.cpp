@@ -11,12 +11,11 @@
 
 #include "framework/Log.h"
 #include "framework/CmdSystem.h"
+#include "framework/cmd/Cmd.h"
 
 #include "net/Socket.h"
 #include "io/IOContext.h"
 #include "io/IOCompletionPort.h"
-
-#include "../Cmd.h"
 
 constexpr unsigned int NET_DEFAULT_THREADS = 2;
 constexpr unsigned int NET_DEFAULT_PRE_POST_ACCEPTS = 10;

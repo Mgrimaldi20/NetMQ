@@ -5,8 +5,7 @@
 #include <memory>
 #include <span>
 
-#include "sys/Cmd.h"
-
+#include "cmd/Cmd.h"
 #include "Log.h"
 
 class CmdSystem
