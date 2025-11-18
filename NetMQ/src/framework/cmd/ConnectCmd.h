@@ -10,7 +10,7 @@
 class ConnectCmd : public Cmd
 {
 public:
-	ConnectCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params);
+	ConnectCmd(std::shared_ptr<IOContext> ioctx, SubManager &manager, std::span<std::byte> params);
 	virtual ~ConnectCmd() = default;
 
 protected:
@@ -24,6 +24,8 @@ private:
 
 	std::string clientid;
 	std::span<std::byte> authtoken;
+
+	friend class CmdSystem;
 };
 
 template<>

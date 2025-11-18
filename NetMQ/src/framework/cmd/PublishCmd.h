@@ -6,7 +6,7 @@
 class PublishCmd : public Cmd
 {
 public:
-	PublishCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params);
+	PublishCmd(std::shared_ptr<IOContext> ioctx, SubManager &manager, std::span<std::byte> params);
 	virtual ~PublishCmd() = default;
 
 protected:
@@ -24,6 +24,8 @@ private:
 
 	std::span<std::byte> topic;
 	std::span<std::byte> msg;
+
+	friend class CmdSystem;
 };
 
 #endif

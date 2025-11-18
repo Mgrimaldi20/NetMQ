@@ -24,7 +24,7 @@ const std::string GetErrorMessage(const int errcode);
 bool ValidateOptions(int argc, char **argv);
 BOOL WINAPI CtrlHandler(DWORD event);
 
-void WorkerThread(const IOCompletionPort &iocp, Socket &listensocket, const CmdSystem &cmd, Log &log);
+void WorkerThread(const IOCompletionPort &iocp, Socket &listensocket, CmdSystem &cmd, Log &log);
 bool GetAcceptExFnPtr(Socket &listensocket, Log &log);
 bool PostAccept(Socket &listensocket, Log &log);
 
@@ -237,7 +237,7 @@ BOOL WINAPI CtrlHandler(DWORD event)
 	return TRUE;
 }
 
-void WorkerThread(const IOCompletionPort &iocp, Socket &listensocket, const CmdSystem &cmd, Log &log)
+void WorkerThread(const IOCompletionPort &iocp, Socket &listensocket, CmdSystem &cmd, Log &log)
 {
 	DWORD iosize = 0;
 	ULONG_PTR completionkey = 0;

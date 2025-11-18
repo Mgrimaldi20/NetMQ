@@ -3,8 +3,8 @@
 
 #include "UnsubscribeCmd.h"
 
-UnsubscribeCmd::UnsubscribeCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params)
-	: Cmd(ioctx)
+UnsubscribeCmd::UnsubscribeCmd(std::shared_ptr<IOContext> ioctx, SubManager &manager, std::span<std::byte> params)
+	: Cmd(ioctx, manager)
 {
 	size_t offset = 0;
 
@@ -19,18 +19,18 @@ void UnsubscribeCmd::ExecuteCmd() const
 	if (!ioctx->GetConnected().load())
 		return;
 
-	std::scoped_lock lock(subsmtx);
+	std::scoped_lock lock(manager.subsmtx);
 
 	std::span<std::byte> topickey(topic.begin(), topic.end());
-	auto iter = subscriptions.find(topickey);
+	auto iter = manager.subscriptions.find(topickey);
 
-	if (iter != subscriptions.end())
+	if (iter != manager.subscriptions.end())
 	{
 		std::vector<std::shared_ptr<IOContext>> &sublist = iter->second;
 		sublist.erase(std::remove(sublist.begin(), sublist.end(), ioctx), sublist.end());
 
 		if (sublist.empty())
-			subscriptions.erase(iter);
+			manager.subscriptions.erase(iter);
 	}
 }
 

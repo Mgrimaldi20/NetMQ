@@ -6,7 +6,7 @@
 class UnsubscribeCmd : public Cmd
 {
 public:
-	UnsubscribeCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params);
+	UnsubscribeCmd(std::shared_ptr<IOContext> ioctx, SubManager &manager, std::span<std::byte> params);
 	virtual ~UnsubscribeCmd() = default;
 
 protected:
@@ -15,6 +15,8 @@ protected:
 
 private:
 	std::span<std::byte> topic;
+
+	friend class CmdSystem;
 };
 
 #endif

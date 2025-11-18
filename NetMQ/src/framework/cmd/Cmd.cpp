@@ -8,6 +8,12 @@ void Cmd::operator()() const
 		ExecuteAck();
 }
 
+Cmd::Cmd(std::shared_ptr<IOContext> ioctx, SubManager &manager) noexcept
+	: ioctx(ioctx),
+	manager(manager)
+{
+}
+
 const bool Cmd::AckRequired() const noexcept
 {
 	return true;

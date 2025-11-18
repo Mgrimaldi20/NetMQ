@@ -1,3 +1,4 @@
+#include "cmd/Cmd.h"
 #include "cmd/PingCmd.h"
 #include "cmd/ConnectCmd.h"
 #include "cmd/PublishCmd.h"
@@ -18,7 +19,7 @@ CmdSystem::~CmdSystem()
 	log.Info("Shutting down the command system");
 }
 
-std::unique_ptr<Cmd> CmdSystem::ParseCommand(std::shared_ptr<IOContext> ioctx, std::span<std::byte> incoming) const
+std::unique_ptr<Cmd> CmdSystem::ParseCommand(std::shared_ptr<IOContext> ioctx, std::span<std::byte> incoming)
 {
 	size_t offset = 0;
 
@@ -32,22 +33,22 @@ std::unique_ptr<Cmd> CmdSystem::ParseCommand(std::shared_ptr<IOContext> ioctx, s
 	switch (type)
 	{
 		case Cmd::Type::Ping:
-			return std::make_unique<PingCmd>(ioctx, params);
+			return std::make_unique<PingCmd>(ioctx, manager, params);
 
 		case Cmd::Type::Connect:
-			return std::make_unique<ConnectCmd>(ioctx, params);
+			return std::make_unique<ConnectCmd>(ioctx, manager, params);
 
 		case Cmd::Type::Publish:
-			return std::make_unique<PublishCmd>(ioctx, params);
+			return std::make_unique<PublishCmd>(ioctx, manager, params);
 
 		case Cmd::Type::Subscribe:
-			return std::make_unique<SubscribeCmd>(ioctx, params);
+			return std::make_unique<SubscribeCmd>(ioctx, manager, params);
 
 		case Cmd::Type::Unsubscribe:
-			return std::make_unique<UnsubscribeCmd>(ioctx, params);
+			return std::make_unique<UnsubscribeCmd>(ioctx, manager, params);
 
 		case Cmd::Type::Disconnect:
-			return std::make_unique<DisconnectCmd>(ioctx, params);
+			return std::make_unique<DisconnectCmd>(ioctx, manager, params);
 
 		default:
 			log.Warn("Unknown command type parsed");

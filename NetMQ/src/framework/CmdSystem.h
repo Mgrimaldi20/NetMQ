@@ -5,8 +5,12 @@
 #include <memory>
 #include <span>
 
-#include "cmd/Cmd.h"
+#include "SubManager.h"
 #include "Log.h"
+
+#include "cmd/Cmd.h"
+
+#include "sys/win32/io/IOContext.h"
 
 class CmdSystem
 {
@@ -14,9 +18,11 @@ public:
 	CmdSystem(Log &log);
 	~CmdSystem();
 
-	std::unique_ptr<Cmd> ParseCommand(std::shared_ptr<IOContext> ioctx, std::span<std::byte> incoming) const;
+	std::unique_ptr<Cmd> ParseCommand(std::shared_ptr<IOContext> ioctx, std::span<std::byte> incoming);
 
 private:
+	SubManager manager;
+
 	Log &log;
 };
 

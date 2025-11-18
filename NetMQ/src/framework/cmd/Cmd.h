@@ -9,7 +9,7 @@
 #include <bit>
 #include <span>
 
-#include "sys/win32/io/IOContext.h"
+#include "framework/SubManager.h"
 
 namespace CmdUtil	// functions implemented differently depending on host endianness at compile time for each type
 {
@@ -57,21 +57,23 @@ public:
 		Disconnect
 	};
 
-	Cmd(std::shared_ptr<IOContext> ioctx) noexcept
-		: ioctx(ioctx)
-	{}
-
 	virtual ~Cmd() = default;
 
 	void operator()() const;
 
 protected:
+	Cmd(std::shared_ptr<IOContext> ioctx, SubManager &manager) noexcept;
+	
 	virtual void ExecuteCmd() const = 0;
 	virtual void ExecuteAck() const = 0;
 
 	virtual const bool AckRequired() const noexcept;
 
 	std::shared_ptr<IOContext> ioctx;
+
+	SubManager &manager;
+
+	friend class CmdSystem;
 };
 
 #endif

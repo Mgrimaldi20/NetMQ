@@ -6,7 +6,7 @@
 class SubscribeCmd : public Cmd
 {
 public:
-	SubscribeCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params);
+	SubscribeCmd(std::shared_ptr<IOContext> ioctx, SubManager &manager, std::span<std::byte> params);
 	virtual ~SubscribeCmd() = default;
 
 protected:
@@ -15,6 +15,8 @@ protected:
 
 private:
 	std::span<std::byte> topic;
+
+	friend class CmdSystem;
 };
 
 #endif

@@ -2,8 +2,8 @@
 
 #include "PublishCmd.h"
 
-PublishCmd::PublishCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params)
-	: Cmd(ioctx)
+PublishCmd::PublishCmd(std::shared_ptr<IOContext> ioctx, SubManager &manager, std::span<std::byte> params)
+	: Cmd(ioctx, manager)
 {
 	size_t offset = 0;
 
@@ -28,12 +28,12 @@ void PublishCmd::ExecuteCmd() const
 	if (!ioctx->GetConnected().load())
 		return;
 
-	std::scoped_lock lock(subsmtx);
+	std::scoped_lock lock(manager.subsmtx);
 
 	std::span<std::byte> topickey(topic.begin(), topic.end());
-	auto iter = subscriptions.find(topickey);
+	auto iter = manager.subscriptions.find(topickey);
 
-	if (iter != subscriptions.end())
+	if (iter != manager.subscriptions.end())
 	{
 		for (auto subscriber : iter->second)
 			subscriber->PostSend(msg);

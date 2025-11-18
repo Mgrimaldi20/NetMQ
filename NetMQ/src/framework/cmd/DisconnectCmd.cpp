@@ -3,8 +3,8 @@
 
 #include "DisconnectCmd.h"
 
-DisconnectCmd::DisconnectCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params)
-	: Cmd(ioctx)
+DisconnectCmd::DisconnectCmd(std::shared_ptr<IOContext> ioctx, SubManager &manager, std::span<std::byte> params)
+	: Cmd(ioctx, manager)
 {
 	std::pair<size_t, uint8_t> ret = CmdUtil::ReadUInt<uint8_t>(params, 0);
 }
@@ -14,12 +14,12 @@ void DisconnectCmd::ExecuteCmd() const
 	if (!ioctx->GetConnected().load())
 		return;
 
-	std::scoped_lock lock(subsmtx);
+	std::scoped_lock lock(manager.subsmtx);
 
-	for (auto &[topic, sublist] : subscriptions)
+	for (auto &[topic, sublist] : manager.subscriptions)
 		sublist.erase(std::remove(sublist.begin(), sublist.end(), ioctx), sublist.end());
 
-	std::erase_if(subscriptions, [](const auto &pair) { return pair.second.empty(); });
+	std::erase_if(manager.subscriptions, [](const auto &pair) { return pair.second.empty(); });
 
 	ioctx->CloseClient();
 }

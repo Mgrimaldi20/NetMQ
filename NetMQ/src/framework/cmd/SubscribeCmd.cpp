@@ -3,8 +3,8 @@
 
 #include "SubscribeCmd.h"
 
-SubscribeCmd::SubscribeCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params)
-	: Cmd(ioctx)
+SubscribeCmd::SubscribeCmd(std::shared_ptr<IOContext> ioctx, SubManager &manager, std::span<std::byte> params)
+	: Cmd(ioctx, manager)
 {
 	size_t offset = 0;
 
@@ -19,12 +19,12 @@ void SubscribeCmd::ExecuteCmd() const
 	if (!ioctx->GetConnected().load())
 		return;
 
-	std::scoped_lock lock(subsmtx);
+	std::scoped_lock lock(manager.subsmtx);
 
 	std::span<std::byte> topickey(topic.begin(), topic.end());
-	auto iter = subscriptions.find(topickey);
+	auto iter = manager.subscriptions.find(topickey);
 
-	if (iter != subscriptions.end())
+	if (iter != manager.subscriptions.end())
 	{
 		std::vector<std::shared_ptr<IOContext>> &sublist = iter->second;
 
@@ -36,7 +36,7 @@ void SubscribeCmd::ExecuteCmd() const
 	{
 		std::vector<std::shared_ptr<IOContext>> newsublist({ ioctx });
 		newsublist.push_back(ioctx);
-		subscriptions[std::move(std::vector<std::byte>(topickey.begin(), topickey.end()))] = std::move(newsublist);
+		manager.subscriptions[std::move(std::vector<std::byte>(topickey.begin(), topickey.end()))] = std::move(newsublist);
 	}
 }
 

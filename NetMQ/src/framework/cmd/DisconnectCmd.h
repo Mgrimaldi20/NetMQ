@@ -6,7 +6,7 @@
 class DisconnectCmd : public Cmd
 {
 public:
-	DisconnectCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params);
+	DisconnectCmd(std::shared_ptr<IOContext> ioctx, SubManager &manager, std::span<std::byte> params);
 	virtual ~DisconnectCmd() = default;
 
 protected:
@@ -14,6 +14,8 @@ protected:
 	void ExecuteAck() const override final;
 
 	const bool AckRequired() const noexcept override final;
+
+	friend class CmdSystem;
 };
 
 #endif

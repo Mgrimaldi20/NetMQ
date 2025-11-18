@@ -6,12 +6,14 @@
 class PingCmd : public Cmd
 {
 public:
-	PingCmd(std::shared_ptr<IOContext> ioctx, std::span<std::byte> params);
+	PingCmd(std::shared_ptr<IOContext> ioctx, SubManager &manager, std::span<std::byte> params);
 	virtual ~PingCmd() = default;
 
 protected:
 	void ExecuteCmd() const override final;
 	void ExecuteAck() const override final;
+
+	friend class CmdSystem;
 };
 
 #endif
