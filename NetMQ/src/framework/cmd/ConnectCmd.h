@@ -9,23 +9,25 @@
 
 class ConnectCmd : public Cmd
 {
-public:
-	ConnectCmd(std::shared_ptr<IOContext> ioctx, SubManager &manager, std::span<std::byte> params);
-	virtual ~ConnectCmd() = default;
+	friend class CmdSystem;
 
-protected:
-	void ExecuteCmd() const override final;
-	void ExecuteAck() const override final;
+private:
+	struct Token {};
+
+public:
+	ConnectCmd(Token, std::shared_ptr<IOContext> ioctx, SubManager &manager, std::span<std::byte> params);
+	virtual ~ConnectCmd() = default;
 
 private:
 	enum class Flags : uint16_t;
+
+	void ExecuteCmd() const override final;
+	void ExecuteAck() const override final;
 
 	Flags flags;
 
 	std::string clientid;
 	std::span<std::byte> authtoken;
-
-	friend class CmdSystem;
 };
 
 template<>

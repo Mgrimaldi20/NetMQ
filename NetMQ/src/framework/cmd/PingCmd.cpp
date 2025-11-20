@@ -1,6 +1,6 @@
 #include "PingCmd.h"
 
-PingCmd::PingCmd(std::shared_ptr<IOContext> ioctx, SubManager &manager, std::span<std::byte> params)
+PingCmd::PingCmd(Token, std::shared_ptr<IOContext> ioctx, SubManager &manager, std::span<std::byte> params)
 	: Cmd(ioctx, manager)
 {
 	(void)params;

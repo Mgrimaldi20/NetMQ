@@ -5,18 +5,20 @@
 
 class UnsubscribeCmd : public Cmd
 {
+	friend class CmdSystem;
+
+private:
+	struct Token {};
+
 public:
-	UnsubscribeCmd(std::shared_ptr<IOContext> ioctx, SubManager &manager, std::span<std::byte> params);
+	UnsubscribeCmd(Token, std::shared_ptr<IOContext> ioctx, SubManager &manager, std::span<std::byte> params);
 	virtual ~UnsubscribeCmd() = default;
 
-protected:
+private:
 	void ExecuteCmd() const override final;
 	void ExecuteAck() const override final;
 
-private:
 	std::span<std::byte> topic;
-
-	friend class CmdSystem;
 };
 
 #endif

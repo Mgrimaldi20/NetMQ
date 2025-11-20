@@ -12,6 +12,13 @@
 
 #include "sys/win32/io/IOContext.h"
 
+/*
+* Class: CmdSystem
+* Handles the parsing and the creation of command objects from incoming data packets.
+* Each command object encapsulates the logic for executing specific commands and acts upon a context.
+* 
+*	ParseCommand: Parses incoming data to identify the command type and creates the corresponding command object
+*/
 class CmdSystem
 {
 public:

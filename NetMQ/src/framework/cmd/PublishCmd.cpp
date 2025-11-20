@@ -2,7 +2,7 @@
 
 #include "PublishCmd.h"
 
-PublishCmd::PublishCmd(std::shared_ptr<IOContext> ioctx, SubManager &manager, std::span<std::byte> params)
+PublishCmd::PublishCmd(Token, std::shared_ptr<IOContext> ioctx, SubManager &manager, std::span<std::byte> params)
 	: Cmd(ioctx, manager)
 {
 	size_t offset = 0;

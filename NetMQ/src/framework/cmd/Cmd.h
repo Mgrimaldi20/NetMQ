@@ -64,16 +64,15 @@ public:
 protected:
 	Cmd(std::shared_ptr<IOContext> ioctx, SubManager &manager) noexcept;
 	
-	virtual void ExecuteCmd() const = 0;
-	virtual void ExecuteAck() const = 0;
-
-	virtual const bool AckRequired() const noexcept;
-
 	std::shared_ptr<IOContext> ioctx;
 
 	SubManager &manager;
 
-	friend class CmdSystem;
+private:
+	virtual void ExecuteCmd() const = 0;
+	virtual void ExecuteAck() const = 0;
+
+	virtual const bool AckRequired() const noexcept;
 };
 
 #endif

@@ -12,7 +12,7 @@ static constexpr uint8_t NETMQ_VERSION = 1;
 
 static std::unordered_set<std::string> usedidset;
 
-ConnectCmd::ConnectCmd(std::shared_ptr<IOContext> ioctx, SubManager &manager, std::span<std::byte> params)
+ConnectCmd::ConnectCmd(Token, std::shared_ptr<IOContext> ioctx, SubManager &manager, std::span<std::byte> params)
 	: Cmd(ioctx, manager)
 {
 	static constexpr std::array<std::byte, 5> HEADER_BYTES =

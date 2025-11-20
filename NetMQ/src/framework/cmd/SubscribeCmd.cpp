@@ -3,7 +3,7 @@
 
 #include "SubscribeCmd.h"
 
-SubscribeCmd::SubscribeCmd(std::shared_ptr<IOContext> ioctx, SubManager &manager, std::span<std::byte> params)
+SubscribeCmd::SubscribeCmd(Token, std::shared_ptr<IOContext> ioctx, SubManager &manager, std::span<std::byte> params)
 	: Cmd(ioctx, manager)
 {
 	size_t offset = 0;

@@ -33,22 +33,22 @@ std::unique_ptr<Cmd> CmdSystem::ParseCommand(std::shared_ptr<IOContext> ioctx, s
 	switch (type)
 	{
 		case Cmd::Type::Ping:
-			return std::make_unique<PingCmd>(ioctx, manager, params);
+			return std::make_unique<PingCmd>(PingCmd::Token {}, ioctx, manager, params);
 
 		case Cmd::Type::Connect:
-			return std::make_unique<ConnectCmd>(ioctx, manager, params);
+			return std::make_unique<ConnectCmd>(ConnectCmd::Token {}, ioctx, manager, params);
 
 		case Cmd::Type::Publish:
-			return std::make_unique<PublishCmd>(ioctx, manager, params);
+			return std::make_unique<PublishCmd>(PublishCmd::Token {}, ioctx, manager, params);
 
 		case Cmd::Type::Subscribe:
-			return std::make_unique<SubscribeCmd>(ioctx, manager, params);
+			return std::make_unique<SubscribeCmd>(SubscribeCmd::Token {}, ioctx, manager, params);
 
 		case Cmd::Type::Unsubscribe:
-			return std::make_unique<UnsubscribeCmd>(ioctx, manager, params);
+			return std::make_unique<UnsubscribeCmd>(UnsubscribeCmd::Token {}, ioctx, manager, params);
 
 		case Cmd::Type::Disconnect:
-			return std::make_unique<DisconnectCmd>(ioctx, manager, params);
+			return std::make_unique<DisconnectCmd>(DisconnectCmd::Token {}, ioctx, manager, params);
 
 		default:
 			log.Warn("Unknown command type parsed");

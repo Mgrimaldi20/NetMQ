@@ -3,7 +3,7 @@
 
 #include "UnsubscribeCmd.h"
 
-UnsubscribeCmd::UnsubscribeCmd(std::shared_ptr<IOContext> ioctx, SubManager &manager, std::span<std::byte> params)
+UnsubscribeCmd::UnsubscribeCmd(Token, std::shared_ptr<IOContext> ioctx, SubManager &manager, std::span<std::byte> params)
 	: Cmd(ioctx, manager)
 {
 	size_t offset = 0;

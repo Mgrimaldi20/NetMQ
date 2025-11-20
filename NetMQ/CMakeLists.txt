@@ -69,7 +69,7 @@ endif()
 
 # Set up all the compiler options here
 if(MSVC)
-	target_compile_options(NetMQ PRIVATE "/W4" "/WX" "/permissive-" "/analyze" "/fp:fast" "/FAs")				# Common options for all build types
+	target_compile_options(NetMQ PRIVATE "/W4" "/WX" "/permissive-" "/analyze" "/fp:fast" "/FAs" "/MP")			# Common options for all build types
 	if(CMAKE_BUILD_TYPE STREQUAL "Debug")																		# Debug build compiler options
 		target_compile_options(NetMQ PRIVATE
 			"/Zi"

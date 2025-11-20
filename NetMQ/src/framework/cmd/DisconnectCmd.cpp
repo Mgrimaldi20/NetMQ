@@ -3,7 +3,7 @@
 
 #include "DisconnectCmd.h"
 
-DisconnectCmd::DisconnectCmd(std::shared_ptr<IOContext> ioctx, SubManager &manager, std::span<std::byte> params)
+DisconnectCmd::DisconnectCmd(Token, std::shared_ptr<IOContext> ioctx, SubManager &manager, std::span<std::byte> params)
 	: Cmd(ioctx, manager)
 {
 	std::pair<size_t, uint8_t> ret = CmdUtil::ReadUInt<uint8_t>(params, 0);

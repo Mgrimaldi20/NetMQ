@@ -5,18 +5,20 @@
 
 class SubscribeCmd : public Cmd
 {
+	friend class CmdSystem;
+
+private:
+	struct Token {};
+
 public:
-	SubscribeCmd(std::shared_ptr<IOContext> ioctx, SubManager &manager, std::span<std::byte> params);
+	SubscribeCmd(Token, std::shared_ptr<IOContext> ioctx, SubManager &manager, std::span<std::byte> params);
 	virtual ~SubscribeCmd() = default;
 
-protected:
+private:
 	void ExecuteCmd() const override final;
 	void ExecuteAck() const override final;
 
-private:
 	std::span<std::byte> topic;
-
-	friend class CmdSystem;
 };
 
 #endif
