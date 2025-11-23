@@ -8,8 +8,6 @@
 
 #include "ConnectCmd.h"
 
-static constexpr uint8_t NETMQ_VERSION = 1;
-
 static std::unordered_set<std::string> usedidset;
 
 ConnectCmd::ConnectCmd(Token, std::shared_ptr<IOContext> ioctx, SubManager &manager, std::span<std::byte> params)
@@ -96,7 +94,7 @@ ConnectCmd::ConnectCmd(Token, std::shared_ptr<IOContext> ioctx, SubManager &mana
 	}
 }
 
-void ConnectCmd::ExecuteCmd() const
+void ConnectCmd::ExecuteCmd()
 {
 	if (ioctx->GetConnected().load())
 		return;
@@ -105,6 +103,6 @@ void ConnectCmd::ExecuteCmd() const
 	ioctx->SetConnected(true);
 }
 
-void ConnectCmd::ExecuteAck() const
+void ConnectCmd::ExecuteAck()
 {
 }

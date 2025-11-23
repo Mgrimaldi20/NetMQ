@@ -34,7 +34,7 @@ Log::Log(const std::filesystem::path &fullpath)
 
 Log::~Log()
 {
-	Info("Closing log: {}", logname);
+	Info("Closing Log: {}", logname);
 
 	outstream.flush();
 }

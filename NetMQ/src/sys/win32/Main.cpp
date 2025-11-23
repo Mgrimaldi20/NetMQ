@@ -11,6 +11,7 @@
 
 #include "framework/Log.h"
 #include "framework/CmdSystem.h"
+#include "framework/IOContextManager.h"
 #include "framework/cmd/Cmd.h"
 
 #include "net/Socket.h"
@@ -49,6 +50,7 @@ int main(int argc, char **argv)
 
 	Log log;
 	CmdSystem cmd(log);
+	IOContextManager ctxmgr(log);
 
 	if (!SetConsoleCtrlHandler(CtrlHandler, TRUE))
 	{

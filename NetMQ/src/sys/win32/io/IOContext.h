@@ -2,8 +2,10 @@
 #define _NETMQ_IOCONTEXT_H_
 
 #include <cstddef>
+#include <chrono>
 #include <mutex>
 #include <atomic>
+#include <condition_variable>
 #include <memory>
 #include <span>
 #include <vector>
@@ -28,7 +30,7 @@ public:
 	void SetListIter(std::list<std::shared_ptr<IOContext>>::iterator listiter) noexcept;
 
 	void PostRecv();
-	void PostSend(std::span<std::byte> data);
+	void PostSend(std::span<const std::byte> data);
 	void CloseClient();
 
 	void CancelOverlappedIO() noexcept;
@@ -64,6 +66,10 @@ private:
 
 	WSABUF recvwsabuf;
 	WSABUF sendwsabuf;
+
+	std::chrono::milliseconds timeout;
+	std::condition_variable iocv;
+	std::mutex iomtx;
 
 	std::atomic<bool> connected;
 	std::atomic<bool> recving;

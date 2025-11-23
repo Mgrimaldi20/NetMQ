@@ -9,6 +9,8 @@ if(CMAKE_VERSION VERSION_GREATER 3.25)
 	set_property(TARGET NetMQ PROPERTY CXX_STANDARD 23)
 endif()
 
+target_compile_definitions(NetMQ PRIVATE NETMQ_VERSION=1)
+
 # Check the Operating System and include the appropriate file for execution
 if(WIN32)
 	target_sources(NetMQ PRIVATE
@@ -33,29 +35,36 @@ endif()
 
 # Specify the common OS independent source files for the NetMQ project.
 target_sources(NetMQ PRIVATE
+	"src/sys/Socket.h"
+	"src/sys/IOContext.h"
 	"src/framework/Bitmask.h"
 	"src/framework/Log.h"
 	"src/framework/Log.cpp"
 	"src/framework/UUID.h"
 	"src/framework/UUID.cpp"
+	"src/framework/IOContextManager.h"
+	"src/framework/IOContextManager.cpp"
 	"src/framework/SubManager.h"
 	"src/framework/SubManager.cpp"
 	"src/framework/CmdSystem.h"
 	"src/framework/CmdSystem.cpp"
+)
+
+target_sources(NetMQ PRIVATE
 	"src/framework/cmd/Cmd.h"
 	"src/framework/cmd/Cmd.cpp"
+	"src/framework/cmd/PingCmd.h"
+	"src/framework/cmd/PingCmd.cpp"
+	"src/framework/cmd/ConnectCmd.h"
+	"src/framework/cmd/ConnectCmd.cpp"
 	"src/framework/cmd/PublishCmd.h"
 	"src/framework/cmd/PublishCmd.cpp"
 	"src/framework/cmd/SubscribeCmd.h"
 	"src/framework/cmd/SubscribeCmd.cpp"
 	"src/framework/cmd/UnsubscribeCmd.h"
 	"src/framework/cmd/UnsubscribeCmd.cpp"
-	"src/framework/cmd/ConnectCmd.h"
-	"src/framework/cmd/ConnectCmd.cpp"
 	"src/framework/cmd/DisconnectCmd.h"
 	"src/framework/cmd/DisconnectCmd.cpp"
-	"src/framework/cmd/PingCmd.h"
-	"src/framework/cmd/PingCmd.cpp"
 )
 
 include_directories(src)

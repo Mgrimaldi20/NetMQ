@@ -15,8 +15,8 @@ public:
 	virtual ~PingCmd() = default;
 
 private:
-	void ExecuteCmd() const override final;
-	void ExecuteAck() const override final;
+	void ExecuteCmd() override final;
+	void ExecuteAck() override final;
 };
 
 #endif

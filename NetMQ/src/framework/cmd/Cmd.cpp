@@ -1,6 +1,6 @@
 #include "Cmd.h"
 
-void Cmd::operator()() const
+void Cmd::operator()()
 {
 	ExecuteCmd();
 

@@ -11,12 +11,12 @@
 CmdSystem::CmdSystem(Log &log)
 	: log(log)
 {
-	log.Info("Command system started");
+	log.Info("Command System started");
 }
 
 CmdSystem::~CmdSystem()
 {
-	log.Info("Shutting down the command system");
+	log.Info("Shutting down the Command System");
 }
 
 std::unique_ptr<Cmd> CmdSystem::ParseCommand(std::shared_ptr<IOContext> ioctx, std::span<std::byte> incoming)

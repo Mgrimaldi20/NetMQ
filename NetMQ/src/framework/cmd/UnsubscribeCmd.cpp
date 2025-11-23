@@ -14,7 +14,7 @@ UnsubscribeCmd::UnsubscribeCmd(Token, std::shared_ptr<IOContext> ioctx, SubManag
 	topic = params.subspan(offset, topiclen);
 }
 
-void UnsubscribeCmd::ExecuteCmd() const
+void UnsubscribeCmd::ExecuteCmd()
 {
 	if (!ioctx->GetConnected().load())
 		return;
@@ -34,6 +34,6 @@ void UnsubscribeCmd::ExecuteCmd() const
 	}
 }
 
-void UnsubscribeCmd::ExecuteAck() const
+void UnsubscribeCmd::ExecuteAck()
 {
 }

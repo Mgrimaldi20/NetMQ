@@ -9,7 +9,7 @@ DisconnectCmd::DisconnectCmd(Token, std::shared_ptr<IOContext> ioctx, SubManager
 	std::pair<size_t, uint8_t> ret = CmdUtil::ReadUInt<uint8_t>(params, 0);
 }
 
-void DisconnectCmd::ExecuteCmd() const
+void DisconnectCmd::ExecuteCmd()
 {
 	if (!ioctx->GetConnected().load())
 		return;
@@ -24,7 +24,7 @@ void DisconnectCmd::ExecuteCmd() const
 	ioctx->CloseClient();
 }
 
-void DisconnectCmd::ExecuteAck() const
+void DisconnectCmd::ExecuteAck()
 {
 }
 

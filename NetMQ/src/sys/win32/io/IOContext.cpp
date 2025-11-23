@@ -10,6 +10,9 @@ IOContext::IOContext(Log &log, std::list<std::shared_ptr<IOContext>> &ioctxlist,
 	sendov(IOOperation::Write, {}),
 	recvwsabuf(),
 	sendwsabuf(),
+	timeout(5000),
+	iocv(),
+	iomtx(),
 	connected(false),
 	recving(false),
 	sending(false),
@@ -45,7 +48,7 @@ void IOContext::SetListIter(std::list<std::shared_ptr<IOContext>>::iterator list
 
 void IOContext::PostRecv()
 {
-	if (recving.load())
+	if (recving.load() || closing.load(std::memory_order_acquire))
 		return;
 
 	recvov.ClearOverlapped();
@@ -61,12 +64,12 @@ void IOContext::PostRecv()
 		return;
 	}
 
-	recving = true;
+	SetRecving(true);
 }
 
-void IOContext::PostSend(std::span<std::byte> data)
+void IOContext::PostSend(std::span<const std::byte> data)
 {
-	if (sending.load() || data.empty())
+	if (sending.load() || data.empty() || closing.load(std::memory_order_acquire))
 		return;
 
 	outgoing.assign_range(data);
@@ -84,7 +87,7 @@ void IOContext::PostSend(std::span<std::byte> data)
 		return;
 	}
 
-	sending = true;
+	SetSending(true);
 }
 
 void IOContext::CloseClient()
@@ -92,6 +95,20 @@ void IOContext::CloseClient()
 	bool expected = false;
 	if (!closing.compare_exchange_strong(expected, true, std::memory_order_acq_rel))
 		return;
+
+	std::shared_ptr<IOContext> self = shared_from_this();
+
+	{
+		std::unique_lock<std::mutex> lock(iomtx);
+
+		auto pred = [this]() noexcept
+		{
+			return !recving.load(std::memory_order_acquire) && !sending.load(std::memory_order_acquire);
+		};
+
+		if (!iocv.wait_for(lock, timeout, pred))
+			log.Warn("CloseClient() timeout waiting for IO operations to complete for client: {}", clientid);
+	}
 
 	log.Info("Closing client: {}", clientid);
 
@@ -140,7 +157,12 @@ std::atomic<bool> &IOContext::GetRecving() noexcept
 
 void IOContext::SetRecving(bool val) noexcept
 {
-	recving = val;
+	recving.store(val, std::memory_order_release);
+	if (!val)
+	{
+		std::scoped_lock lock(iomtx);
+		iocv.notify_all();
+	}
 }
 
 std::atomic<bool> &IOContext::GetSending() noexcept
@@ -150,7 +172,12 @@ std::atomic<bool> &IOContext::GetSending() noexcept
 
 void IOContext::SetSending(bool val) noexcept
 {
-	sending = val;
+	sending.store(val, std::memory_order_release);
+	if (!val)
+	{
+		std::scoped_lock lock(iomtx);
+		iocv.notify_all();
+	}
 }
 
 std::vector<std::byte> &IOContext::GetIncomingBuffer() noexcept

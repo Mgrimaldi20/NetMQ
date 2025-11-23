@@ -5,8 +5,10 @@
 #include <cstddef>
 #include <utility>
 #include <concepts>
+#include <type_traits>
 #include <memory>
 #include <bit>
+#include <vector>
 #include <span>
 
 #include "framework/SubManager.h"
@@ -42,12 +44,64 @@ namespace CmdUtil	// functions implemented differently depending on host endiann
 
 		return std::make_pair(OUT_SIZE, out);
 	}
+
+	class AckBuilder
+	{
+	public:
+		AckBuilder()
+			: buffer()
+		{
+		}
+
+		~AckBuilder() = default;
+
+		template<ValidUIntType T>
+		AckBuilder &AppendUInt(const T val)		// append an unsigned int, go back to little endian if needed
+		{
+			T out = val;
+
+			if constexpr(std::same_as<T, uint8_t>)
+				buffer.push_back(std::byte(out));
+
+			else
+			{
+				if constexpr (std::endian::native == std::endian::little)
+					out = std::byteswap(out);
+
+				buffer.assign_range(std::as_bytes(std::span<const T>(&out, 1)));
+			}
+
+			return *this;
+		}
+
+		AckBuilder &AppendString(std::string_view string)
+		{
+			for (char c : string)
+				buffer.push_back(std::byte(c));
+
+			return *this;
+		}
+
+		AckBuilder &AppendBytes(std::span<const std::byte> bytes)
+		{
+			buffer.assign_range(bytes);
+			return *this;
+		}
+
+		std::span<const std::byte> Build() const
+		{
+			return std::span<const std::byte>(buffer);
+		}
+
+	private:
+		std::vector<std::byte> buffer;
+	};
 }
 
 class Cmd
 {
 public:
-	enum class Type
+	enum class Type : uint8_t
 	{
 		Ping,
 		Connect,
@@ -59,20 +113,26 @@ public:
 
 	virtual ~Cmd() = default;
 
-	void operator()() const;
+	void operator()();
 
 protected:
 	Cmd(std::shared_ptr<IOContext> ioctx, SubManager &manager) noexcept;
-	
-	std::shared_ptr<IOContext> ioctx;
 
+	CmdUtil::AckBuilder ackbuilder;
+
+	std::shared_ptr<IOContext> ioctx;
 	SubManager &manager;
 
 private:
-	virtual void ExecuteCmd() const = 0;
-	virtual void ExecuteAck() const = 0;
+	virtual void ExecuteCmd() = 0;
+	virtual void ExecuteAck() = 0;
 
 	virtual const bool AckRequired() const noexcept;
+};
+
+enum class ReasonCode : uint8_t
+{
+	Success
 };
 
 #endif

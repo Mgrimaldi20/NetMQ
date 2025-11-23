@@ -21,8 +21,8 @@ public:
 private:
 	enum class Flags : uint16_t;
 
-	void ExecuteCmd() const override final;
-	void ExecuteAck() const override final;
+	void ExecuteCmd() override final;
+	void ExecuteAck() override final;
 
 	Flags flags;
 

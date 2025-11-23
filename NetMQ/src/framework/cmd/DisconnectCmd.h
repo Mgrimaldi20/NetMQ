@@ -15,8 +15,8 @@ public:
 	virtual ~DisconnectCmd() = default;
 
 private:
-	void ExecuteCmd() const override final;
-	void ExecuteAck() const override final;
+	void ExecuteCmd() override final;
+	void ExecuteAck() override final;
 
 	const bool AckRequired() const noexcept override final;
 };

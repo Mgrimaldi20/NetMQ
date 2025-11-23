@@ -14,7 +14,7 @@ SubscribeCmd::SubscribeCmd(Token, std::shared_ptr<IOContext> ioctx, SubManager &
 	topic = params.subspan(offset, topiclen);
 }
 
-void SubscribeCmd::ExecuteCmd() const
+void SubscribeCmd::ExecuteCmd()
 {
 	if (!ioctx->GetConnected().load())
 		return;
@@ -40,6 +40,6 @@ void SubscribeCmd::ExecuteCmd() const
 	}
 }
 
-void SubscribeCmd::ExecuteAck() const
+void SubscribeCmd::ExecuteAck()
 {
 }

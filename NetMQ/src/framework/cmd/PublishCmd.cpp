@@ -23,7 +23,7 @@ PublishCmd::PublishCmd(Token, std::shared_ptr<IOContext> ioctx, SubManager &mana
 	msg = params.subspan(offset, msglen);
 }
 
-void PublishCmd::ExecuteCmd() const
+void PublishCmd::ExecuteCmd()
 {
 	if (!ioctx->GetConnected().load())
 		return;
@@ -40,7 +40,7 @@ void PublishCmd::ExecuteCmd() const
 	}
 }
 
-void PublishCmd::ExecuteAck() const
+void PublishCmd::ExecuteAck()
 {
 }
 
