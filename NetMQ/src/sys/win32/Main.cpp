@@ -268,7 +268,7 @@ void WorkerThread(const IOCompletionPort &iocp, Socket &listensocket, CmdSystem 
 
 		switch (perio->GetIOOperation())
 		{
-			case IOOperation::Accept:
+			case OverlappedIO::Operation::Accept:
 			{
 				// after AcceptEx completed
 				SOCKET ls = listensocket.GetSocket();
@@ -304,7 +304,7 @@ void WorkerThread(const IOCompletionPort &iocp, Socket &listensocket, CmdSystem 
 				break;
 			}
 
-			case IOOperation::Read:		// a read operation is complete, so post a write to get more data from the client
+			case OverlappedIO::Operation::Read:		// a read operation is complete, so post a write to get more data from the client
 			{
 				ioctx->SetRecving(false);
 
@@ -332,7 +332,7 @@ void WorkerThread(const IOCompletionPort &iocp, Socket &listensocket, CmdSystem 
 				break;
 			}
 
-			case IOOperation::Write:	// a write operation is complete, so post a read back to the client now
+			case OverlappedIO::Operation::Write:	// a write operation is complete, so post a read back to the client now
 				ioctx->SetSending(false);
 				break;
 		}

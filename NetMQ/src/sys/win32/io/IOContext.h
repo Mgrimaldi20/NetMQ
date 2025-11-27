@@ -7,6 +7,8 @@
 #include <atomic>
 #include <condition_variable>
 #include <memory>
+#include <string>
+#include <string_view>
 #include <span>
 #include <vector>
 #include <list>
@@ -17,7 +19,6 @@
 #include "../net/WinSockAPI.h"
 
 #include "OverlappedIO.h"
-#include "IOOperation.h"
 
 class IOContext : public std::enable_shared_from_this<IOContext>
 {
@@ -37,7 +38,7 @@ public:
 
 	Socket &GetAcceptSocket() noexcept;
 
-	void SetClientID(const std::string &id) noexcept;
+	void SetClientID(std::string_view id) noexcept;
 
 	OverlappedIO &GetAcceptOverlapped() noexcept;
 

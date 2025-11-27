@@ -21,6 +21,10 @@ namespace CmdUtil	// functions implemented differently depending on host endiann
 		|| std::same_as<T, uint32_t>
 		|| std::same_as<T, uint64_t>;
 
+	template<typename T>
+	concept ValidUIntUnderlyingType = std::is_enum_v<T>
+		&& ValidUIntType<std::underlying_type_t<T>>;
+
 	template<ValidUIntType T>
 	constexpr std::pair<size_t, T> ReadUInt(std::span<const std::byte> buffer, const size_t offset)
 	{
@@ -43,6 +47,13 @@ namespace CmdUtil	// functions implemented differently depending on host endiann
 		}
 
 		return std::make_pair(OUT_SIZE, out);
+	}
+
+	template<ValidUIntUnderlyingType T>
+	constexpr std::pair<size_t, T> ReadUInt(std::span<const std::byte> buffer, const size_t offset)
+	{
+		auto [size, out] = ReadUInt<std::underlying_type_t<T>>(buffer, offset);
+		return std::make_pair(size, static_cast<T>(out));
 	}
 
 	class AckBuilder
@@ -72,6 +83,12 @@ namespace CmdUtil	// functions implemented differently depending on host endiann
 			}
 
 			return *this;
+		}
+
+		template<ValidUIntUnderlyingType T>
+		AckBuilder &AppendUInt(const T val)
+		{
+			return AppendUInt<std::underlying_type_t<T>>(static_cast<std::underlying_type_t<T>>(val));
 		}
 
 		AckBuilder &AppendString(std::string_view string)
@@ -111,6 +128,11 @@ public:
 		Disconnect
 	};
 
+	enum class ReasonCode : uint8_t
+	{
+		Success
+	};
+
 	virtual ~Cmd() = default;
 
 	void operator()();
@@ -128,11 +150,6 @@ private:
 	virtual void ExecuteAck() = 0;
 
 	virtual const bool AckRequired() const noexcept;
-};
-
-enum class ReasonCode : uint8_t
-{
-	Success
 };
 
 #endif

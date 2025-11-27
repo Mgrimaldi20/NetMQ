@@ -15,7 +15,6 @@ target_compile_definitions(NetMQ PRIVATE NETMQ_VERSION=1)
 if(WIN32)
 	target_sources(NetMQ PRIVATE
 		"src/sys/win32/Main.cpp"
-		"src/sys/win32/io/IOOperation.h"
 		"src/sys/win32/net/WinSockAPI.h"
 		"src/sys/win32/net/WinSockAPI.cpp"
 		"src/sys/win32/io/IOContext.h"

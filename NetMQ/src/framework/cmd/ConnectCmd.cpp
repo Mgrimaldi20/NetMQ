@@ -36,9 +36,9 @@ ConnectCmd::ConnectCmd(Token, std::shared_ptr<IOContext> ioctx, SubManager &mana
 
 	offset += std::get<0>(version);
 
-	std::pair<size_t, std::underlying_type_t<Flags>> parsedflags = CmdUtil::ReadUInt<std::underlying_type_t<Flags>>(params, offset);
+	std::pair<size_t, Flags> parsedflags = CmdUtil::ReadUInt<Flags>(params, offset);
 	offset += std::get<0>(parsedflags);
-	flags = static_cast<Flags>(std::get<1>(parsedflags));
+	flags = std::get<1>(parsedflags);
 
 	if (Bitmask::HasFlag(flags, Flags::ClientId))
 	{

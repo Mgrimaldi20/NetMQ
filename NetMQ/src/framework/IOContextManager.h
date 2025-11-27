@@ -9,6 +9,8 @@ public:
 	IOContextManager(Log &log);
 	~IOContextManager();
 
+	bool PostAccept();
+
 	void Clear();
 
 private:

@@ -7,9 +7,9 @@ PublishCmd::PublishCmd(Token, std::shared_ptr<IOContext> ioctx, SubManager &mana
 {
 	size_t offset = 0;
 
-	std::pair<size_t, std::underlying_type_t<Options>> parsedflags = CmdUtil::ReadUInt<std::underlying_type_t<Options>>(params, offset);
+	std::pair<size_t, Options> parsedflags = CmdUtil::ReadUInt<Options>(params, offset);
 	offset += std::get<0>(parsedflags);
-	options = static_cast<Options>(std::get<1>(parsedflags));
+	options = std::get<1>(parsedflags);
 
 	std::pair<size_t, uint32_t> ret = CmdUtil::ReadUInt<uint32_t>(params, offset);
 	offset += std::get<0>(ret);

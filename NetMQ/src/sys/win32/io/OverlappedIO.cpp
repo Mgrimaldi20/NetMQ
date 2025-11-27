@@ -1,6 +1,6 @@
 #include "OverlappedIO.h"
 
-OverlappedIO::OverlappedIO(IOOperation ioop, std::weak_ptr<IOContext> ioctx)
+OverlappedIO::OverlappedIO(OverlappedIO::Operation ioop, std::weak_ptr<IOContext> ioctx)
 	: ioop(ioop),
 	ioctx(ioctx)
 {
@@ -17,7 +17,7 @@ WSAOVERLAPPED &OverlappedIO::GetOverlapped() noexcept
 	return overlapped;
 }
 
-IOOperation &OverlappedIO::GetIOOperation() noexcept
+OverlappedIO::Operation &OverlappedIO::GetIOOperation() noexcept
 {
 	return ioop;
 }

@@ -13,6 +13,11 @@ IOContextManager::~IOContextManager()
 	Clear();
 }
 
+bool IOContextManager::PostAccept()
+{
+    return false;
+}
+
 void IOContextManager::Clear()
 {
 }
