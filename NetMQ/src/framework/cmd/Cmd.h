@@ -130,7 +130,25 @@ public:
 
 	enum class ReasonCode : uint8_t
 	{
-		Success
+		Success = 0,
+		NoMatchingSubscribers = 16,
+		NoSubscriptionExisted = 17,
+		UnspecifiedError = 128,
+		MalformedPacket = 129,
+		ProtocolError = 130,
+		ImplementationError = 131,
+		UnsupportedProtocolVersion = 132,
+		InvalidClientID = 133,
+		BadUsernameOrPassword = 134,
+		NotAuthorized = 135,
+		ServerUnavailable = 136,
+		ServerBusy = 137,
+		Banned = 138,
+		ServerShuttingDown = 139,
+		BadAuthenticationMethod = 140,
+		KeepAliveTimeout = 141,
+		SessionTakenOver = 142,
+		PacketTooLarge = 149
 	};
 
 	virtual ~Cmd() = default;

@@ -4,7 +4,8 @@
 #include "UnsubscribeCmd.h"
 
 UnsubscribeCmd::UnsubscribeCmd(Token, std::shared_ptr<IOContext> ioctx, SubManager &manager, std::span<std::byte> params)
-	: Cmd(ioctx, manager)
+	: Cmd(ioctx, manager),
+	ackdata({ .type = Cmd::Type::Unsubscribe })
 {
 	size_t offset = 0;
 
@@ -31,9 +32,19 @@ void UnsubscribeCmd::ExecuteCmd()
 
 		if (sublist.empty())
 			manager.subscriptions.erase(iter);
+
+		ackdata.reason = Cmd::ReasonCode::Success;
 	}
+
+	ackdata.reason = Cmd::ReasonCode::NoSubscriptionExisted;
 }
 
 void UnsubscribeCmd::ExecuteAck()
 {
+	ioctx->PostSend(
+		ackbuilder
+		.AppendUInt<Cmd::Type>(ackdata.type)
+		.AppendUInt<Cmd::ReasonCode>(ackdata.reason)
+		.Build()
+	);
 }

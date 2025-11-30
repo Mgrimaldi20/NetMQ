@@ -11,7 +11,8 @@
 static std::unordered_set<std::string> usedidset;
 
 ConnectCmd::ConnectCmd(Token, std::shared_ptr<IOContext> ioctx, SubManager &manager, std::span<std::byte> params)
-	: Cmd(ioctx, manager)
+	: Cmd(ioctx, manager),
+	ackdata({ .type = Cmd::Type::Connect })
 {
 	static constexpr std::array<std::byte, 5> HEADER_BYTES =
 	{
@@ -26,13 +27,13 @@ ConnectCmd::ConnectCmd(Token, std::shared_ptr<IOContext> ioctx, SubManager &mana
 
 	std::span<std::byte, HEADER_BYTES.size()> header(params.subspan(offset, HEADER_BYTES.size()));
 	if (!std::equal(header.begin(), header.end(), HEADER_BYTES.begin()))
-		throw std::runtime_error("Header does not match the expected value");
+		ackdata.reason = Cmd::ReasonCode::UnsupportedProtocolVersion;
 
 	offset += header.size();
 
 	std::pair<size_t, uint8_t> version = CmdUtil::ReadUInt<uint8_t>(params, offset);
 	if (std::get<1>(version) != NETMQ_VERSION)
-		throw std::runtime_error(std::format("Version parsed ({}) does not equal the implemented NetMQ protocol version of the server ({})", std::get<1>(version), NETMQ_VERSION));
+		ackdata.reason = Cmd::ReasonCode::UnsupportedProtocolVersion;
 
 	offset += std::get<0>(version);
 
@@ -46,13 +47,13 @@ ConnectCmd::ConnectCmd(Token, std::shared_ptr<IOContext> ioctx, SubManager &mana
 		offset += std::get<0>(packetsize);
 		uint8_t clientidlen = std::get<1>(packetsize);
 		if (clientidlen == 0)
-			throw std::runtime_error("Client ID flag is set but client ID length is zero");
+			ackdata.reason = Cmd::ReasonCode::InvalidClientID;
 
 		std::span<std::byte> tmpclientid = params.subspan(offset, clientidlen);
 		std::transform(tmpclientid.begin(), tmpclientid.end(), std::back_inserter(clientid), [](std::byte b) { return static_cast<char>(b); });
 
 		if (!usedidset.insert(clientid).second || !std::all_of(clientid.begin(), clientid.end(), [](unsigned char c) { return std::isprint(c); }))
-			throw std::runtime_error("Client ID not valid");
+			ackdata.reason = Cmd::ReasonCode::InvalidClientID;
 
 		offset += clientidlen;
 	}
@@ -77,7 +78,7 @@ ConnectCmd::ConnectCmd(Token, std::shared_ptr<IOContext> ioctx, SubManager &mana
 		}
 
 		if (!unique)
-			throw std::runtime_error("Failed to generate a client ID");
+			ackdata.reason = Cmd::ReasonCode::InvalidClientID;
 	}
 
 	if (Bitmask::HasFlag(flags, Flags::AuthTkn))
@@ -87,7 +88,7 @@ ConnectCmd::ConnectCmd(Token, std::shared_ptr<IOContext> ioctx, SubManager &mana
 		uint8_t authtokenlen = std::get<1>(tokenlen);
 
 		if (authtokenlen == 0)
-			throw std::runtime_error("Auth token flag is set but token length is zero");
+			ackdata.reason = Cmd::ReasonCode::BadAuthenticationMethod;
 
 		authtoken = params.subspan(offset, authtokenlen);
 		offset += authtokenlen;
@@ -101,8 +102,16 @@ void ConnectCmd::ExecuteCmd()
 
 	ioctx->SetClientID(clientid);
 	ioctx->SetConnected(true);
+
+	ackdata.reason = Cmd::ReasonCode::Success;
 }
 
 void ConnectCmd::ExecuteAck()
 {
+	ioctx->PostSend(
+		ackbuilder
+		.AppendUInt<Cmd::Type>(ackdata.type)
+		.AppendUInt<Cmd::ReasonCode>(ackdata.reason)
+		.Build()
+	);
 }

@@ -15,6 +15,12 @@ public:
 	virtual ~PublishCmd() = default;
 
 private:
+	struct AckData
+	{
+		Cmd::Type type;
+		Cmd::ReasonCode reason;
+	} ackdata;
+
 	enum class Options : uint16_t
 	{
 		Ack,

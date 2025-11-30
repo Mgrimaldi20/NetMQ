@@ -15,6 +15,12 @@ public:
 	virtual ~SubscribeCmd() = default;
 
 private:
+	struct AckData
+	{
+		Cmd::Type type;
+		Cmd::ReasonCode reason;
+	} ackdata;
+
 	void ExecuteCmd() override final;
 	void ExecuteAck() override final;
 

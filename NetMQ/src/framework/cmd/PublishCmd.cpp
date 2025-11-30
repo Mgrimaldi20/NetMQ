@@ -3,7 +3,8 @@
 #include "PublishCmd.h"
 
 PublishCmd::PublishCmd(Token, std::shared_ptr<IOContext> ioctx, SubManager &manager, std::span<std::byte> params)
-	: Cmd(ioctx, manager)
+	: Cmd(ioctx, manager),
+	ackdata({ .type = Cmd::Type::Publish })
 {
 	size_t offset = 0;
 
@@ -37,11 +38,21 @@ void PublishCmd::ExecuteCmd()
 	{
 		for (auto subscriber : iter->second)
 			subscriber->PostSend(msg);
+
+		ackdata.reason = Cmd::ReasonCode::Success;
 	}
+
+	ackdata.reason = Cmd::ReasonCode::NoMatchingSubscribers;
 }
 
 void PublishCmd::ExecuteAck()
 {
+	ioctx->PostSend(
+		ackbuilder
+		.AppendUInt<Cmd::Type>(ackdata.type)
+		.AppendUInt<Cmd::ReasonCode>(ackdata.reason)
+		.Build()
+	);
 }
 
 const bool PublishCmd::AckRequired() const noexcept

@@ -4,16 +4,15 @@
 
 PingCmd::PingCmd(Token, std::shared_ptr<IOContext> ioctx, SubManager &manager, std::span<std::byte> params)
 	: Cmd(ioctx, manager),
-	ackdata()
+	ackdata({ .type = Cmd::Type::Ping })
 {
 	(void)params;
-
-	ackdata.type = Cmd::Type::Ping;
 }
 
 void PingCmd::ExecuteCmd()
 {
 	ioctx->SetClientID("PING_CLIENT");
+
 	ackdata.reason = Cmd::ReasonCode::Success;
 }
 

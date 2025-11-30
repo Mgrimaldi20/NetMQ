@@ -21,6 +21,12 @@ public:
 private:
 	enum class Flags : uint16_t;
 
+	struct AckData
+	{
+		Cmd::Type type;
+		Cmd::ReasonCode reason;
+	} ackdata;
+
 	void ExecuteCmd() override final;
 	void ExecuteAck() override final;
 

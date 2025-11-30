@@ -4,7 +4,8 @@
 #include "SubscribeCmd.h"
 
 SubscribeCmd::SubscribeCmd(Token, std::shared_ptr<IOContext> ioctx, SubManager &manager, std::span<std::byte> params)
-	: Cmd(ioctx, manager)
+	: Cmd(ioctx, manager),
+	ackdata({ .type = Cmd::Type::Subscribe })
 {
 	size_t offset = 0;
 
@@ -38,8 +39,16 @@ void SubscribeCmd::ExecuteCmd()
 		newsublist.push_back(ioctx);
 		manager.subscriptions[std::move(std::vector<std::byte>(topickey.begin(), topickey.end()))] = std::move(newsublist);
 	}
+
+	ackdata.reason = Cmd::ReasonCode::Success;
 }
 
 void SubscribeCmd::ExecuteAck()
 {
+	ioctx->PostSend(
+		ackbuilder
+		.AppendUInt<Cmd::Type>(ackdata.type)
+		.AppendUInt<Cmd::ReasonCode>(ackdata.reason)
+		.Build()
+	);
 }
