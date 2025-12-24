@@ -10,6 +10,7 @@ if(CMAKE_VERSION VERSION_GREATER 3.25)
 endif()
 
 target_compile_definitions(NetMQ PRIVATE NETMQ_VERSION=1)
+target_compile_definitions(NetMQ PRIVATE MQTT_SPEC_VERSION=5)	# 0x05 for MQTT 5.0
 
 # Check the Operating System and include the appropriate file for execution
 if(WIN32)
@@ -47,23 +48,25 @@ target_sources(NetMQ PRIVATE
 	"src/framework/SubManager.cpp"
 	"src/framework/CmdSystem.h"
 	"src/framework/CmdSystem.cpp"
-)
+	"src/framework/Cmd.h"
+	"src/framework/Cmd.cpp"
+ "src/framework/ByteBuffer.h" "src/framework/ByteBuffer.cpp")
 
 target_sources(NetMQ PRIVATE
-	"src/framework/cmd/Cmd.h"
-	"src/framework/cmd/Cmd.cpp"
-	"src/framework/cmd/PingCmd.h"
-	"src/framework/cmd/PingCmd.cpp"
-	"src/framework/cmd/ConnectCmd.h"
-	"src/framework/cmd/ConnectCmd.cpp"
-	"src/framework/cmd/PublishCmd.h"
-	"src/framework/cmd/PublishCmd.cpp"
-	"src/framework/cmd/SubscribeCmd.h"
-	"src/framework/cmd/SubscribeCmd.cpp"
-	"src/framework/cmd/UnsubscribeCmd.h"
-	"src/framework/cmd/UnsubscribeCmd.cpp"
-	"src/framework/cmd/DisconnectCmd.h"
-	"src/framework/cmd/DisconnectCmd.cpp"
+	"src/mqtt/cmd/ConnectCmd.h"
+	"src/mqtt/cmd/ConnectCmd.cpp"
+	"src/mqtt/cmd/PublishCmd.h"
+	"src/mqtt/cmd/PublishCmd.cpp"
+	"src/mqtt/cmd/SubscribeCmd.h"
+	"src/mqtt/cmd/SubscribeCmd.cpp"
+	"src/mqtt/cmd/UnsubscribeCmd.h"
+	"src/mqtt/cmd/UnsubscribeCmd.cpp"
+	"src/mqtt/cmd/PingReqCmd.h"
+	"src/mqtt/cmd/PingReqCmd.cpp"
+	"src/mqtt/cmd/DisconnectCmd.h"
+	"src/mqtt/cmd/DisconnectCmd.cpp"
+	"src/mqtt/cmd/AuthCmd.h"
+	"src/mqtt/cmd/AuthCmd.cpp"
 )
 
 include_directories(src)

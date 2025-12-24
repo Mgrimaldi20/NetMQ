@@ -1,7 +1,8 @@
 #ifndef _NETMQ_UNSUBSCRIBECMD_H_
 #define _NETMQ_UNSUBSCRIBECMD_H_
 
-#include "Cmd.h"
+#include "framework/ByteBuffer.h"
+#include "framework/Cmd.h"
 
 class UnsubscribeCmd : public Cmd
 {
@@ -11,7 +12,7 @@ private:
 	struct Token {};
 
 public:
-	UnsubscribeCmd(Token, std::shared_ptr<IOContext> ioctx, SubManager &manager, std::span<std::byte> params);
+	UnsubscribeCmd(Token, std::shared_ptr<IOContext> ioctx, SubManager &manager, ByteBuffer &params);
 	virtual ~UnsubscribeCmd() = default;
 
 private:

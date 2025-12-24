@@ -1,9 +1,10 @@
 #ifndef _NETMQ_PINGCMD_H_
 #define _NETMQ_PINGCMD_H_
 
-#include "Cmd.h"
+#include "framework/ByteBuffer.h"
+#include "framework/Cmd.h"
 
-class PingCmd : public Cmd
+class PingReqCmd : public Cmd
 {
 	friend class CmdSystem;
 
@@ -11,14 +12,14 @@ private:
 	struct Token {};
 
 public:
-	PingCmd(Token, std::shared_ptr<IOContext> ioctx, SubManager &manager, std::span<std::byte> params);
-	virtual ~PingCmd() = default;
+	PingReqCmd(Token, std::shared_ptr<IOContext> ioctx, SubManager &manager, ByteBuffer &params);
+	virtual ~PingReqCmd() = default;
 
 private:
 	struct AckData
 	{
 		Cmd::Type type;
-		Cmd::ReasonCode reason;
+		uint8_t remaininglen;
 	} ackdata;
 
 	void ExecuteCmd() override final;

@@ -3,16 +3,11 @@
 
 #include "SubscribeCmd.h"
 
-SubscribeCmd::SubscribeCmd(Token, std::shared_ptr<IOContext> ioctx, SubManager &manager, std::span<std::byte> params)
+SubscribeCmd::SubscribeCmd(Token, std::shared_ptr<IOContext> ioctx, SubManager &manager, ByteBuffer &params)
 	: Cmd(ioctx, manager),
 	ackdata({ .type = Cmd::Type::Subscribe })
 {
-	size_t offset = 0;
-
-	std::pair<size_t, uint32_t> ret = CmdUtil::ReadUInt<uint32_t>(params, offset);
-	offset += std::get<0>(ret);
-	uint32_t topiclen = std::get<1>(ret);
-	topic = params.subspan(offset, topiclen);
+	(void)params;
 }
 
 void SubscribeCmd::ExecuteCmd()

@@ -1,7 +1,8 @@
 #ifndef _NETMQ_DISCONNECTCMD_H_
 #define _NETMQ_DISCONNECTCMD_H_
 
-#include "Cmd.h"
+#include "framework/ByteBuffer.h"
+#include "framework/Cmd.h"
 
 class DisconnectCmd : public Cmd
 {
@@ -11,7 +12,7 @@ private:
 	struct Token {};
 
 public:
-	DisconnectCmd(Token, std::shared_ptr<IOContext> ioctx, SubManager &manager, std::span<std::byte> params);
+	DisconnectCmd(Token, std::shared_ptr<IOContext> ioctx, SubManager &manager, ByteBuffer &params);
 	virtual ~DisconnectCmd() = default;
 
 private:

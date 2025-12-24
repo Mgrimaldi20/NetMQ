@@ -7,8 +7,8 @@
 
 #include "SubManager.h"
 #include "Log.h"
-
-#include "cmd/Cmd.h"
+#include "Cmd.h"
+#include "ByteBuffer.h"
 
 #include "sys/win32/io/IOContext.h"
 
@@ -25,7 +25,7 @@ public:
 	CmdSystem(Log &log);
 	~CmdSystem();
 
-	std::unique_ptr<Cmd> ParseCommand(std::shared_ptr<IOContext> ioctx, std::span<std::byte> incoming);
+	std::unique_ptr<Cmd> ParseCommand(std::shared_ptr<IOContext> ioctx, ByteBuffer &incoming);
 
 private:
 	SubManager manager;

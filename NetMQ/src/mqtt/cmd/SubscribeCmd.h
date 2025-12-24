@@ -1,7 +1,8 @@
 #ifndef _NETMQ_SUBSCRIBECMD_H_
 #define _NETMQ_SUBSCRIBECMD_H_
 
-#include "Cmd.h"
+#include "framework/ByteBuffer.h"
+#include "framework/Cmd.h"
 
 class SubscribeCmd : public Cmd
 {
@@ -11,7 +12,7 @@ private:
 	struct Token {};
 
 public:
-	SubscribeCmd(Token, std::shared_ptr<IOContext> ioctx, SubManager &manager, std::span<std::byte> params);
+	SubscribeCmd(Token, std::shared_ptr<IOContext> ioctx, SubManager &manager, ByteBuffer &params);
 	virtual ~SubscribeCmd() = default;
 
 private:

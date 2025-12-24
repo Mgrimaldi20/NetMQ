@@ -1,7 +1,8 @@
 #ifndef _NETMQ_PUBLISHCMD_H_
 #define _NETMQ_PUBLISHCMD_H_
 
-#include "Cmd.h"
+#include "framework/ByteBuffer.h"
+#include "framework/Cmd.h"
 
 class PublishCmd : public Cmd
 {
@@ -11,7 +12,7 @@ private:
 	struct Token {};
 
 public:
-	PublishCmd(Token, std::shared_ptr<IOContext> ioctx, SubManager &manager, std::span<std::byte> params);
+	PublishCmd(Token, std::shared_ptr<IOContext> ioctx, SubManager &manager, ByteBuffer &params);
 	virtual ~PublishCmd() = default;
 
 private:

@@ -1,10 +1,11 @@
-#include "cmd/Cmd.h"
-#include "cmd/PingCmd.h"
-#include "cmd/ConnectCmd.h"
-#include "cmd/PublishCmd.h"
-#include "cmd/SubscribeCmd.h"
-#include "cmd/UnsubscribeCmd.h"
-#include "cmd/DisconnectCmd.h"
+#include "Cmd.h"
+#include "mqtt/cmd/ConnectCmd.h"
+#include "mqtt/cmd/PublishCmd.h"
+#include "mqtt/cmd/SubscribeCmd.h"
+#include "mqtt/cmd/UnsubscribeCmd.h"
+#include "mqtt/cmd/PingReqCmd.h"
+#include "mqtt/cmd/DisconnectCmd.h"
+#include "mqtt/cmd/AuthCmd.h"
 
 #include "CmdSystem.h"
 
@@ -19,37 +20,40 @@ CmdSystem::~CmdSystem()
 	log.Info("Shutting down the Command System");
 }
 
-std::unique_ptr<Cmd> CmdSystem::ParseCommand(std::shared_ptr<IOContext> ioctx, std::span<std::byte> incoming)
+std::unique_ptr<Cmd> CmdSystem::ParseCommand(std::shared_ptr<IOContext> ioctx, ByteBuffer &incoming)
 {
-	size_t offset = 0;
-
-	std::pair<size_t, uint8_t> cmd = CmdUtil::ReadUInt<uint8_t>(incoming, offset);
-	offset += std::get<0>(cmd);
-
-	std::span<std::byte> params = incoming.subspan(offset, (incoming.size() - offset));
-
-	const Cmd::Type type = static_cast<Cmd::Type>(std::get<1>(cmd));
-
-	switch (type)
+	if (incoming.Size() < 1)
 	{
-		case Cmd::Type::Ping:
-			return std::make_unique<PingCmd>(PingCmd::Token {}, ioctx, manager, params);
+		log.Warn("Received command with insufficient data to parse command type");
+		return nullptr;
+	}
 
+	Cmd::Type cmd = static_cast<Cmd::Type>(incoming[0] & std::byte(0xF0));
+
+	switch (cmd)
+	{
 		case Cmd::Type::Connect:
-			return std::make_unique<ConnectCmd>(ConnectCmd::Token {}, ioctx, manager, params);
+			return std::make_unique<ConnectCmd>(ConnectCmd::Token {}, ioctx, manager, incoming);
 
 		case Cmd::Type::Publish:
-			return std::make_unique<PublishCmd>(PublishCmd::Token {}, ioctx, manager, params);
+			return std::make_unique<PublishCmd>(PublishCmd::Token {}, ioctx, manager, incoming);
 
 		case Cmd::Type::Subscribe:
-			return std::make_unique<SubscribeCmd>(SubscribeCmd::Token {}, ioctx, manager, params);
+			return std::make_unique<SubscribeCmd>(SubscribeCmd::Token {}, ioctx, manager, incoming);
 
 		case Cmd::Type::Unsubscribe:
-			return std::make_unique<UnsubscribeCmd>(UnsubscribeCmd::Token {}, ioctx, manager, params);
+			return std::make_unique<UnsubscribeCmd>(UnsubscribeCmd::Token {}, ioctx, manager, incoming);
+
+		case Cmd::Type::PingReq:
+			return std::make_unique<PingReqCmd>(PingReqCmd::Token {}, ioctx, manager, incoming);
 
 		case Cmd::Type::Disconnect:
-			return std::make_unique<DisconnectCmd>(DisconnectCmd::Token {}, ioctx, manager, params);
+			return std::make_unique<DisconnectCmd>(DisconnectCmd::Token {}, ioctx, manager, incoming);
 
+		case Cmd::Type::Auth:
+			return std::make_unique<AuthCmd>(AuthCmd::Token {}, ioctx, manager, incoming);
+
+		case Cmd::Type::Reserved:
 		default:
 			log.Warn("Unknown command type parsed");
 			return nullptr;

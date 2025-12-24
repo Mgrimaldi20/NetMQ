@@ -12,7 +12,7 @@
 #include "framework/Log.h"
 #include "framework/CmdSystem.h"
 #include "framework/IOContextManager.h"
-#include "framework/cmd/Cmd.h"
+#include "framework/Cmd.h"
 
 #include "net/Socket.h"
 #include "io/IOContext.h"
@@ -316,7 +316,8 @@ void WorkerThread(const IOCompletionPort &iocp, Socket &listensocket, CmdSystem 
 
 				try
 				{
-					std::unique_ptr<Cmd> command = cmd.ParseCommand(ioctx, std::span<std::byte>(ioctx->GetIncomingBuffer().data(), iosize));
+					ByteBuffer ioctxbuffer(ioctx->GetIncomingBuffer());
+					std::unique_ptr<Cmd> command = cmd.ParseCommand(ioctx, ioctxbuffer);
 					if (command)
 						(*command)();
 				}
